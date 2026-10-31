@@ -1,0 +1,32 @@
+{
+  "name": "dopesheetwriter",
+  "productName": "Dopesheet Writer",
+  "version": "1.0.0",
+  "description": "Writes the agency shotlist (dopesheet) of an edited video from the video and its Premiere / Final Cut XML.",
+  "author": "Jaime Alekos",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jaimealekos/dopesheetwriter.git"
+  },
+  "homepage": "https://github.com/jaimealekos/dopesheetwriter#readme",
+  "bugs": {
+    "url": "https://github.com/jaimealekos/dopesheetwriter/issues"
+  },
+  "type": "module",
+  "main": "main/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/*.test.js\"",
+    "package:win": "electron-packager . DopesheetWriter --platform=win32 --arch=x64 --out=dist --overwrite --prune=true --extra-resource=vendor/transcriber --ignore=\"^/(docs|test|scripts|dist|vendor|[A-Z][A-Z_]*.md|LICENSE|.github)\"",
+    "package:mac": "electron-packager . DopesheetWriter --platform=darwin --arch=universal --out=dist --overwrite --prune=true --ignore=\"^/(docs|test|scripts|dist|vendor|[A-Z][A-Z_]*.md|LICENSE|.github)\""
+  },
+  "dependencies": {
+    "fast-xml-parser": "5.11.2"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "44.5.1"
+  }
+}

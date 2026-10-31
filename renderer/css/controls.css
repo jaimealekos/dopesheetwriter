@@ -1,0 +1,1047 @@
+/* controls.css — controles comunes y componentes de superposición
+   Diseño gráfico, secciones 5, 6.2, 6.11, 6.12, 6.13, 8, 9, 13.2 y 13.3. */
+
+/* --- Iconos y utilidades (6.13) ---------------------------------------- */
+
+.icon {
+  width: var(--size-icon);
+  height: var(--size-icon);
+  flex: none;
+}
+
+.icon--player {
+  width: var(--size-icon-player);
+  height: var(--size-icon-player);
+}
+
+.icon--dropzone {
+  width: var(--size-icon-dropzone);
+  height: var(--size-icon-dropzone);
+}
+
+.visually-hidden,
+.sr-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.spinner {
+  animation: rotate var(--motion-spinner) linear infinite;
+  transform-origin: center;
+}
+
+@keyframes rotate {
+  to { transform: rotate(360deg); }
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 4px;
+  margin-left: 4px;
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  border-radius: var(--radius-sm);
+  font: 500 11px/16px var(--font-mono);
+}
+
+/* --- Botón .button (5.1) ----------------------------------------------- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--size-control);
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: var(--font-weight-control) var(--font-size-control)/var(--font-line-control) var(--font-ui);
+  letter-spacing: var(--font-tracking-control);
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  color: var(--color-text);
+  transition: background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.button:focus-visible {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: var(--size-focus-offset);
+}
+
+.button--primary {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.button--primary:hover:not(.is-disabled):not(.is-loading) {
+  background: var(--color-accent-hover);
+}
+
+.button--primary:active:not(.is-disabled):not(.is-loading) {
+  background: var(--color-accent-pressed);
+}
+
+.button--secondary {
+  border-color: var(--color-border-control);
+  color: var(--color-text);
+}
+
+.button--secondary:hover:not(.is-disabled):not(.is-loading) {
+  background: var(--color-hover);
+  border-color: var(--color-border-hover);
+}
+
+.button--secondary:active:not(.is-disabled):not(.is-loading) {
+  background: var(--color-active);
+}
+
+.button--ghost {
+  color: var(--color-text-secondary);
+}
+
+.button--ghost:hover:not(.is-disabled):not(.is-loading) {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.button--ghost:active:not(.is-disabled):not(.is-loading) {
+  background: var(--color-active);
+  color: var(--color-text);
+}
+
+.button.is-disabled {
+  cursor: not-allowed;
+  color: var(--color-text-disabled);
+}
+
+.button--primary.is-disabled {
+  background: var(--color-raised);
+  border-color: var(--color-border);
+  color: var(--color-text-disabled);
+}
+
+.button--secondary.is-disabled {
+  border-color: var(--color-border);
+  color: var(--color-text-disabled);
+}
+
+.button--ghost.is-disabled {
+  color: var(--color-text-disabled);
+}
+
+.button.is-loading {
+  cursor: default;
+  pointer-events: none;
+}
+
+.button--primary.is-loading .spinner {
+  color: var(--color-on-accent);
+}
+
+.button--secondary.is-loading .spinner,
+.button--ghost.is-loading .spinner {
+  color: var(--color-text);
+}
+
+.button__label {
+  display: inline-block;
+}
+
+/* --- Botón de icono .icon-button (5.2) --------------------------------- */
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-control);
+  height: var(--size-control);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.icon-button:hover:not(.is-disabled):not(:disabled) {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.icon-button:active:not(.is-disabled):not(:disabled) {
+  background: var(--color-active);
+}
+
+.icon-button:focus-visible {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: var(--size-focus-offset);
+}
+
+.icon-button.is-active {
+  color: var(--color-accent);
+}
+
+.icon-button.is-disabled,
+.icon-button:disabled {
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+/* --- Campo .field (5.3) ------------------------------------------------ */
+
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+.field__label-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.field__label {
+  font: var(--font-weight-label) var(--font-size-label)/var(--font-line-label) var(--font-ui);
+  letter-spacing: var(--font-tracking-label);
+  color: var(--color-text-secondary);
+}
+
+.field__optional {
+  font: var(--font-weight-caption) var(--font-size-caption)/var(--font-line-caption) var(--font-ui);
+  letter-spacing: var(--font-tracking-caption);
+  color: var(--color-text-tertiary);
+}
+
+.field__input,
+.field__select,
+.field__textarea {
+  width: 100%;
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  background: var(--color-field);
+  color: var(--color-text);
+  font: var(--font-weight-body) var(--font-size-body)/var(--font-line-body) var(--font-ui);
+  letter-spacing: var(--font-tracking-body);
+  transition: border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.field__input,
+.field__select {
+  height: var(--size-field);
+  padding: 0 10px;
+}
+
+.field__input::placeholder,
+.field__textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.field__input:hover,
+.field__select:hover,
+.field__textarea:hover {
+  border-color: var(--color-border-hover);
+}
+
+.field__input:focus,
+.field__select:focus,
+.field__textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.field__select-wrap {
+  position: relative;
+}
+
+.field__select {
+  appearance: none;
+  padding-right: 32px;
+  cursor: pointer;
+}
+
+.field__select.is-empty {
+  color: var(--color-text-tertiary);
+}
+
+.field__chevron {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
+.field__textarea {
+  min-height: var(--size-textarea-min);
+  padding: 8px 10px;
+  resize: none;
+  overflow-y: hidden;
+}
+
+.field--textarea .field__textarea.is-quote {
+  min-height: var(--size-textarea-quote-min);
+}
+
+.field__help {
+  margin-top: 6px;
+  font: var(--font-weight-caption) var(--font-size-caption)/var(--font-line-caption) var(--font-ui);
+  letter-spacing: var(--font-tracking-caption);
+  color: var(--color-text-tertiary);
+}
+
+.field__error {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font: var(--font-weight-caption) var(--font-size-caption)/var(--font-line-caption) var(--font-ui);
+  letter-spacing: var(--font-tracking-caption);
+  color: var(--color-error);
+}
+
+.field__error .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.field.is-error .field__input,
+.field.is-error .field__select,
+.field.is-error .field__textarea {
+  border-color: var(--color-error);
+}
+
+.field.is-error .field__input:focus,
+.field.is-error .field__select:focus,
+.field.is-error .field__textarea:focus {
+  box-shadow: 0 0 0 1px var(--color-error);
+}
+
+.field.is-disabled .field__input,
+.field.is-disabled .field__select,
+.field.is-disabled .field__textarea {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.field.is-disabled .field__label,
+.field.is-disabled .field__help {
+  color: var(--color-text-disabled);
+}
+
+/* Campo Translation mientras se traduce (13.3.1): solo lectura en curso. */
+.field__textarea[aria-busy="true"] {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: progress;
+}
+
+.field__textarea[aria-busy="true"]:focus {
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
+/* --- Conmutador .switch (5.4) ------------------------------------------ */
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--size-control);
+  cursor: pointer;
+}
+
+.switch__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch__track {
+  position: relative;
+  flex: none;
+  width: var(--size-switch-w);
+  height: var(--size-switch-h);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  transition: background-color var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out);
+}
+
+.switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: var(--size-switch-thumb);
+  height: var(--size-switch-thumb);
+  border-radius: var(--radius-pill);
+  background: var(--color-text-secondary);
+  transition: transform var(--motion-base) var(--ease-out),
+    background-color var(--motion-base) var(--ease-out);
+}
+
+.switch__label {
+  font: var(--font-weight-control) var(--font-size-control)/var(--font-line-control) var(--font-ui);
+  letter-spacing: var(--font-tracking-control);
+  color: var(--color-text);
+}
+
+.switch:hover:not(.is-disabled) .switch__track {
+  border-color: var(--color-border-hover);
+}
+
+.switch__input:checked + .switch__track {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.switch__input:checked + .switch__track .switch__thumb {
+  transform: translateX(14px);
+  background: var(--color-on-accent);
+}
+
+.switch:hover:not(.is-disabled) .switch__input:checked + .switch__track {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.switch__input:focus-visible + .switch__track {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: var(--size-focus-offset);
+}
+
+.switch.is-disabled {
+  cursor: not-allowed;
+}
+
+.switch.is-disabled .switch__track {
+  border-color: var(--color-border);
+}
+
+.switch.is-disabled .switch__thumb {
+  background: var(--color-text-disabled);
+}
+
+.switch.is-disabled .switch__label {
+  color: var(--color-text-disabled);
+}
+
+/* --- Control segmentado .segmented (5.5) ------------------------------- */
+
+.field--segmented .segmented {
+  width: 200px;
+}
+
+.segmented {
+  display: flex;
+  align-items: stretch;
+  height: var(--size-control);
+  padding: 2px;
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  background: var(--color-field);
+}
+
+.field--segmented.is-error .segmented {
+  border-color: var(--color-error);
+}
+
+.segmented__option {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  font: var(--font-weight-control) var(--font-size-control)/var(--font-line-control) var(--font-ui);
+  letter-spacing: var(--font-tracking-control);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color var(--motion-base) var(--ease-standard),
+    color var(--motion-base) var(--ease-standard);
+}
+
+.segmented__option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmented__option:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.segmented__option.is-checked {
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+.segmented__option input:focus-visible + span {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: 0;
+  border-radius: var(--radius-sm);
+}
+
+/* --- Chip de fuente .source-chip (5.6) --------------------------------- */
+
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--size-control);
+  max-width: var(--size-chip-max);
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text);
+  font: var(--font-weight-control) var(--font-size-control)/var(--font-line-control) var(--font-ui);
+  letter-spacing: var(--font-tracking-control);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+
+.source-chip .icon {
+  color: var(--color-text-secondary);
+}
+
+.source-chip__name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.source-chip:hover {
+  background: var(--color-hover);
+  border-color: var(--color-border-control);
+}
+
+.source-chip:active {
+  background: var(--color-active);
+}
+
+.source-chip:focus-visible {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: var(--size-focus-offset);
+}
+
+/* --- Tooltip .tooltip y .tooltip-layer (5.7) --------------------------- */
+
+.tooltip-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--z-tooltip);
+}
+
+.tooltip {
+  position: absolute;
+  max-width: var(--size-tooltip-max);
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-raised);
+  box-shadow: var(--shadow-2);
+  color: var(--color-text);
+  font: var(--font-weight-caption) var(--font-size-caption)/var(--font-line-caption) var(--font-ui);
+  letter-spacing: var(--font-tracking-caption);
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.tooltip.is-visible {
+  opacity: 1;
+}
+
+.tooltip .kbd {
+  color: var(--color-text-secondary);
+}
+
+/* --- Banner .banner (6.2) ---------------------------------------------- */
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 16px;
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+
+.banner.is-visible {
+  opacity: 1;
+}
+
+.banner--error {
+  background: var(--color-error-bg);
+  border-bottom: 1px solid var(--color-error);
+}
+
+.banner--warning {
+  background: var(--color-warning-bg);
+  border-bottom: 1px solid var(--color-warning);
+}
+
+.banner__icon {
+  flex: none;
+}
+
+.banner--error .banner__icon,
+.icon--error {
+  color: var(--color-error);
+}
+
+.banner--warning .banner__icon,
+.icon--warning {
+  color: var(--color-warning);
+}
+
+.banner__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.banner__title {
+  display: inline;
+  font: 600 13px/16px var(--font-ui);
+  color: var(--color-text);
+}
+
+.banner__detail {
+  display: inline;
+  font: 400 13px/20px var(--font-ui);
+  color: var(--color-text-secondary);
+}
+
+.banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* --- Conmutador de vista previa .preview-toggle (13.2.1) --------------- */
+
+.preview-toggle {
+  transition: background-color var(--motion-base) var(--ease-standard),
+    border-color var(--motion-base) var(--ease-standard),
+    color var(--motion-base) var(--ease-standard),
+    box-shadow var(--motion-base) var(--ease-standard);
+}
+
+.preview-toggle .icon {
+  color: var(--color-text-secondary);
+}
+
+.preview-toggle:hover:not(.is-disabled):not(.is-loading),
+.preview-toggle:active:not(.is-disabled):not(.is-loading) {
+  transition-duration: var(--motion-fast);
+}
+
+.preview-toggle:hover:not(.is-disabled):not(.is-loading) .icon,
+.preview-toggle:active:not(.is-disabled):not(.is-loading) .icon {
+  color: var(--color-text);
+}
+
+.preview-toggle.is-active {
+  background: var(--color-accent-tint);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.preview-toggle.is-active .icon {
+  color: var(--color-accent);
+}
+
+.preview-toggle.is-active:hover:not(.is-disabled):not(.is-loading) {
+  background: var(--color-accent-tint);
+  border-color: var(--color-accent-hover);
+  color: var(--color-accent);
+}
+
+.preview-toggle.is-active:hover:not(.is-disabled):not(.is-loading) .icon,
+.preview-toggle.is-active:active:not(.is-disabled):not(.is-loading) .icon {
+  color: var(--color-accent);
+}
+
+.preview-toggle.is-active:active:not(.is-disabled):not(.is-loading) {
+  background: var(--color-accent-tint);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+/* --- Botones .translate-button (13.3.1), .transcribe-button (14.1) y .translate-all (13.8) --- */
+
+.translate-button,
+.transcribe-button {
+  padding: 0 10px;
+}
+
+.translate-button .icon,
+.transcribe-button .icon,
+.translate-all .icon {
+  color: var(--color-text-secondary);
+}
+
+.translate-button:hover:not(.is-disabled):not(.is-loading) .icon,
+.translate-button:active:not(.is-disabled):not(.is-loading) .icon,
+.transcribe-button:hover:not(.is-disabled):not(.is-loading) .icon,
+.transcribe-button:active:not(.is-disabled):not(.is-loading) .icon,
+.translate-all:hover:not(.is-disabled):not(.is-loading) .icon,
+.translate-all:active:not(.is-disabled):not(.is-loading) .icon {
+  color: var(--color-text);
+}
+
+.translate-button.is-disabled .icon,
+.transcribe-button.is-disabled .icon,
+.translate-all.is-disabled .icon {
+  color: var(--color-text-disabled);
+}
+
+/* La fila de etiqueta que lleva el botón necesita 32px y alineación central. */
+.field__label-row:has(.translate-button, .transcribe-button) {
+  min-height: var(--size-control);
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.field__label-row:has(.translate-button, .transcribe-button) .field__label {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.transcribe-button {
+  margin-left: auto;
+  flex: none;
+}
+
+/* --- Realce de Language tras transcribir (14.3) --- */
+
+@keyframes field-autofilled {
+  from {
+    background-color: var(--color-accent-tint);
+    border-color: var(--color-accent);
+  }
+  to {
+    background-color: var(--color-field);
+    border-color: var(--color-border-control);
+  }
+}
+
+.field__input.is-autofilled:not(:focus) {
+  animation: field-autofilled var(--motion-autofill) var(--ease-in) both;
+}
+
+/* --- Modal .modal (6.11) ----------------------------------------------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-backdrop);
+  opacity: 0;
+  transition: opacity var(--motion-exit) var(--ease-in);
+}
+
+.modal-backdrop.is-open {
+  opacity: 1;
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+
+.modal {
+  width: var(--size-modal);
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-raised);
+  box-shadow: var(--shadow-3);
+  opacity: 0;
+  transform: scale(0.98);
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+
+.modal-backdrop.is-open .modal {
+  opacity: 1;
+  transform: none;
+}
+
+.modal__title {
+  font: var(--font-weight-title) var(--font-size-title)/var(--font-line-title) var(--font-display);
+  letter-spacing: var(--font-tracking-title);
+  color: var(--color-text);
+}
+
+.modal__body {
+  margin-top: 8px;
+  font: var(--font-weight-body) var(--font-size-body)/var(--font-line-body) var(--font-ui);
+  color: var(--color-text-secondary);
+}
+
+.modal__body .mono {
+  font: var(--font-weight-mono-sm) var(--font-size-mono-sm)/var(--font-line-mono-sm) var(--font-mono);
+  color: var(--color-text);
+}
+
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+/* --- Modal de detección de entrevistas (15.1) -------------------------- */
+
+.interview-detect__range {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.interview-detect__count {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font: 600 13px/16px var(--font-ui);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.interview-detect__stepper {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.interview-detect__list {
+  margin-top: 8px;
+  padding: 4px 0;
+  max-height: var(--size-detect-list-max);
+  overflow-y: auto;
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.interview-detect__list:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.interview-detect__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 24px;
+  padding: 0 12px;
+  font: var(--font-weight-mono-sm) var(--font-size-mono-sm)/var(--font-line-mono-sm) var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.interview-detect__shot {
+  color: var(--color-text);
+}
+
+.interview-detect__duration {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.interview-detect__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  margin-top: 8px;
+  font: var(--font-weight-caption) var(--font-size-caption)/var(--font-line-caption) var(--font-ui);
+  letter-spacing: var(--font-tracking-caption);
+  color: var(--color-text-tertiary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+/* --- Toast .toast (6.12) ----------------------------------------------- */
+
+.toast-region {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: var(--z-toast);
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: var(--size-toast);
+  padding: 12px 12px 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-raised);
+  box-shadow: var(--shadow-2);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity var(--motion-slow) var(--ease-out),
+    transform var(--motion-slow) var(--ease-out);
+}
+
+.toast.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.toast.is-leaving {
+  opacity: 0;
+  transform: none;
+  transition: opacity var(--motion-exit) var(--ease-in);
+}
+
+.toast--success .toast__icon {
+  color: var(--color-success);
+}
+
+.toast__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast__title {
+  font: 600 13px/16px var(--font-ui);
+  color: var(--color-text);
+}
+
+.toast__detail {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 400 var(--font-size-mono-sm)/var(--font-line-mono-sm) var(--font-mono);
+  color: var(--color-text-secondary);
+}
+
+.toast__action {
+  flex: none;
+}
+
+.toast__close {
+  flex: none;
+}
+
+/* --- Progreso .progress (6.1) ------------------------------------------ */
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress__bar {
+  width: var(--size-progress-bar);
+  height: var(--size-track);
+  border-radius: var(--radius-pill);
+  background: var(--color-track);
+  overflow: hidden;
+}
+
+.progress__fill {
+  width: 0;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  transition: width var(--motion-base) var(--ease-out);
+}
+
+.progress__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: var(--font-weight-control) var(--font-size-control)/var(--font-line-control) var(--font-ui);
+  letter-spacing: var(--font-tracking-control);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+.progress.is-complete .progress__fill {
+  background: var(--color-success);
+}
+
+.progress.is-complete .progress__label {
+  color: var(--color-success);
+}
+
+/* --- Movimiento reducido (8) ------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .icon-button,
+  .source-chip,
+  .segmented__option,
+  .switch__track,
+  .switch__thumb,
+  .field__input,
+  .field__select,
+  .field__textarea {
+    transition-duration: 90ms;
+  }
+
+  .switch__thumb,
+  .modal,
+  .toast {
+    transform: none;
+  }
+
+  .banner,
+  .tooltip,
+  .modal-backdrop,
+  .toast {
+    transition-duration: 90ms;
+  }
+
+  .spinner {
+    animation-duration: 1600ms;
+  }
+
+  .progress__fill {
+    transition: none;
+  }
+}

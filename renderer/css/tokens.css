@@ -1,0 +1,372 @@
+/* tokens.css — módulo styles.
+   Sección 1 del diseño (tema oscuro y claro), tipografía como variables,
+   reinicio mínimo, media queries de la sección 11 y prefers-reduced-motion.
+   Valores copiados tal cual de docs/DISENO-GRAFICO.md. */
+
+:root {
+  color-scheme: dark light;
+
+  /* Color — tema oscuro (por defecto) */
+  --color-bg: #0e0f11;               /* fondo de ventana y de la columna principal */
+  --color-surface: #16171a;          /* barra superior, columna derecha, controles del reproductor */
+  --color-raised: #1e2024;           /* tarjetas, tooltips, modal, toast, fondo de miniatura */
+  --color-field: #1e2024;            /* fondo de campos */
+  --color-hover: #26282d;            /* fondo en puntero encima (botones secundarios, fantasmas) */
+  --color-active: #2e3036;           /* fondo pulsado */
+  --color-sunken: #0a0b0d;           /* fondo de la vista previa */
+  --color-video: #000000;            /* escenario del vídeo (igual en ambos temas) */
+  --color-on-video: #f2f2f4;         /* texto e iconos sobre el escenario */
+  --color-border: #2a2c31;           /* divisores y bordes no interactivos */
+  --color-border-control: #6a6e77;   /* borde de campos, botones secundarios, segmentado */
+  --color-border-hover: #868a93;     /* borde de control con puntero encima */
+  --color-text: #ececef;             /* texto principal */
+  --color-text-secondary: #a4a8b0;   /* etiquetas, metadatos */
+  --color-text-tertiary: #868a93;    /* marcadores de posición, pies, ayudas */
+  --color-text-disabled: #5b5f67;    /* texto desactivado (exento de contraste) */
+  --color-accent: #5c9dff;           /* acción principal, selección, plano actual */
+  --color-accent-hover: #7aafff;
+  --color-accent-pressed: #4a8af0;
+  --color-on-accent: #0b1426;        /* texto sobre acento */
+  --color-accent-tint: #202a3a;      /* fondo seleccionado suave, arrastre encima */
+  --color-focus: #5c9dff;            /* anillo de foco */
+  --color-success: #3fcf8e;
+  --color-success-bg: #152a23;
+  --color-warning: #f0b44c;
+  --color-warning-bg: #2e2619;
+  --color-error: #ff6b6b;
+  --color-error-bg: #301c1e;
+  --color-interview: #b59cff;        /* solo planos de entrevista (soundbite) */
+  --color-on-interview: #1a1030;
+  --color-track: #34373d;            /* pista de la barra de progreso */
+  --color-cut: #a4a8b0;              /* marcas de corte */
+  --color-playhead: #ececef;
+  --color-play-bg: #ececef;          /* botón play/pausa */
+  --color-play-hover: #ffffff;
+  --color-play-icon: #16171a;
+  --color-preview-current: #141d2a;  /* bloque del plano actual en la vista previa */
+  --color-backdrop: rgba(0, 0, 0, 0.60);
+  --color-scrollbar: #3a3d43;
+  --color-scrollbar-hover: #53575e;
+  --color-skeleton: #1e2024;
+  --color-skeleton-shine: #2a2c31;
+
+  /* Tipografía — sin fuentes web */
+  --font-ui: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", ui-monospace, Menlo, monospace;
+
+  --font-size-display: 28px;   --font-weight-display: 600;   --font-line-display: 36px;   --font-tracking-display: -0.01em;
+  --font-size-title: 18px;     --font-weight-title: 600;     --font-line-title: 24px;     --font-tracking-title: -0.005em;
+  --font-size-subtitle: 15px;  --font-weight-subtitle: 600;  --font-line-subtitle: 20px;  --font-tracking-subtitle: 0;
+  --font-size-body: 14px;      --font-weight-body: 400;      --font-line-body: 20px;      --font-tracking-body: 0;
+  --font-size-control: 13px;   --font-weight-control: 500;   --font-line-control: 16px;   --font-tracking-control: 0.005em;
+  --font-size-label: 12px;     --font-weight-label: 500;     --font-line-label: 16px;     --font-tracking-label: 0.01em;
+  --font-size-caption: 12px;   --font-weight-caption: 400;   --font-line-caption: 16px;   --font-tracking-caption: 0;
+  --font-size-overline: 11px;  --font-weight-overline: 600;  --font-line-overline: 16px;  --font-tracking-overline: 0.06em;
+  --font-size-timecode: 15px;  --font-weight-timecode: 500;  --font-line-timecode: 20px;  --font-tracking-timecode: 0;
+  --font-size-mono-sm: 12px;   --font-weight-mono-sm: 500;   --font-line-mono-sm: 16px;   --font-tracking-mono-sm: 0;
+  --font-size-preview: 13px;   --font-weight-preview: 400;   --font-line-preview: 20px;   --font-tracking-preview: 0;
+
+  /* Espaciado — escala de 4 px */
+  --space-half: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Radios */
+  --radius-sm: 4px;     /* insignias, kbd, tooltip, opciones del segmentado */
+  --radius-md: 6px;     /* botones, campos, chips, miniaturas */
+  --radius-lg: 8px;     /* escenario del vídeo, bloque del reproductor, toast */
+  --radius-xl: 12px;    /* zonas de soltar, modal */
+  --radius-pill: 999px; /* botón play, conmutador, punto de estado */
+
+  /* Sombras — tema oscuro */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.30);
+  --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.60), 0 4px 12px rgba(0, 0, 0, 0.40);
+
+  /* Tamaños */
+  --size-window-min-w: 1280px;
+  --size-window-min-h: 700px;
+  --size-topbar: 48px;
+  --size-video-min: 460px;
+  --size-sidebar: 800px;
+  --size-sidebar-min: 520px;
+  --size-preview: 440px;
+  --size-preview-min: 300px;
+  --size-pane-header: 40px;
+  --size-pane-slide: 16px;
+  --size-header-date: 176px;
+  --size-shot-select-col: 224px;
+  --size-age: 80px;
+  --size-gender: 160px;
+  --size-textarea-fill-min: 120px;
+  --size-filmstrip: 128px;
+  --size-thumb-w: 128px;
+  --size-thumb-h: 72px;
+  --size-player-controls: 72px;
+  --size-timeline-hit: 20px;
+  --size-track: 4px;
+  --size-track-hover: 6px;
+  --size-cut-h: 12px;
+  --size-playhead: 12px;
+  --size-control: 32px;       /* botones, chips, icon-buttons, segmentado: objetivo mínimo */
+  --size-field: 36px;         /* input y select */
+  --size-play: 40px;
+  --size-tab: 40px;
+  --size-icon: 16px;
+  --size-icon-player: 20px;
+  --size-icon-dropzone: 32px;
+  --size-switch-w: 32px;
+  --size-switch-h: 18px;
+  --size-switch-thumb: 14px;
+  --size-status-dot: 8px;
+  --size-badge-h: 18px;
+  --size-dropzone-h: 240px;
+  --size-home-max: 880px;
+  --size-modal: 440px;
+  --size-detect-list-max: 200px; /* 8 filas de 24px + 8px de relleno (15.1) */
+  --size-toast: 360px;
+  --size-tooltip-max: 280px;
+  --size-volume: 88px;
+  --size-progress-bar: 64px;
+  --size-chip-max: 280px;
+  --size-textarea-min: 96px;
+  --size-textarea-quote-min: 72px;
+  --size-textarea-max: 240px;
+  --size-scrollbar: 8px;
+  --size-focus-ring: 2px;
+  --size-focus-offset: 2px;
+  --size-main-padding: 16px;
+
+  /* Movimiento */
+  --motion-fast: 90ms;
+  --motion-base: 150ms;
+  --motion-slow: 240ms;
+  --motion-exit: 160ms;
+  --motion-shimmer: 1200ms;
+  --motion-spinner: 800ms;
+  --motion-autofill: 1600ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Capas */
+  --z-banner: 10;
+  --z-drop-overlay: 30;
+  --z-toast: 40;
+  --z-modal: 50;
+  --z-tooltip: 60;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-bg: #eceef1;
+    --color-surface: #ffffff;
+    --color-raised: #f5f6f8;
+    --color-field: #ffffff;
+    --color-hover: #e8eaee;
+    --color-active: #dde0e5;
+    --color-sunken: #f7f8fa;
+    --color-video: #000000;
+    --color-on-video: #f2f2f4;
+    --color-border: #dfe2e6;
+    --color-border-control: #838892;
+    --color-border-hover: #676c75;
+    --color-text: #16181d;
+    --color-text-secondary: #4f545d;
+    --color-text-tertiary: #676c75;
+    --color-text-disabled: #a2a6ad;
+    --color-accent: #0b5fd7;
+    --color-accent-hover: #0a52bb;
+    --color-accent-pressed: #08469f;
+    --color-on-accent: #ffffff;
+    --color-accent-tint: #ebf2fc;
+    --color-focus: #0b5fd7;
+    --color-success: #13784a;
+    --color-success-bg: #ecf4f1;
+    --color-warning: #8f5b00;
+    --color-warning-bg: #f4efe6;
+    --color-error: #c42b31;
+    --color-error-bg: #faeeef;
+    --color-interview: #6b46c9;
+    --color-on-interview: #ffffff;
+    --color-track: #d5d8dd;
+    --color-cut: #4f545d;
+    --color-playhead: #16181d;
+    --color-play-bg: #16181d;
+    --color-play-hover: #000000;
+    --color-play-icon: #ffffff;
+    --color-preview-current: #e4ecf7;
+    --color-backdrop: rgba(16, 24, 40, 0.32);
+    --color-scrollbar: #c4c8ce;
+    --color-scrollbar-hover: #a2a6ad;
+    --color-skeleton: #eceef1;
+    --color-skeleton-shine: #f7f8fa;
+
+    --shadow-1: 0 1px 2px rgba(16, 24, 40, 0.08);
+    --shadow-2: 0 8px 24px rgba(16, 24, 40, 0.12), 0 2px 6px rgba(16, 24, 40, 0.08);
+    --shadow-3: 0 24px 64px rgba(16, 24, 40, 0.18), 0 4px 12px rgba(16, 24, 40, 0.10);
+  }
+}
+
+/* Reinicio mínimo (contrato, sección 1 del encargo). */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: var(--font-weight-body) var(--font-size-body)/var(--font-line-body) var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Barras de desplazamiento (diseño 6.6). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar) transparent;
+}
+
+::-webkit-scrollbar {
+  width: var(--size-scrollbar);
+  height: var(--size-scrollbar);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar);
+  border-radius: var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scrollbar-hover);
+}
+
+/* Sección 11 — responsive. Solo escritorio; la ventana no baja de 1100×700.
+   Los selectores de componente llevan ancestro `.app` para imponerse a las
+   reglas base, que se importan después de este fichero. */
+
+@media (max-width: 1280px) {
+  :root {
+    --size-sidebar: 720px;
+    --size-preview: 400px;
+    --size-main-padding: 12px;
+    --size-thumb-w: 112px;
+    --size-thumb-h: 63px;
+    --size-filmstrip: 116px;
+    --size-volume: 64px;
+    --size-chip-max: 200px;
+    --font-size-preview: 12px;
+    --font-line-preview: 18px;
+    --size-dropzone-h: 200px;
+    --size-home-max: 800px;
+  }
+
+  .app .workspace__main { row-gap: 8px; }
+  .app .player__shot-label { display: none; }
+  .app .header-fields__row { grid-template-columns: 1fr 136px; }
+  .app .progress__bar { display: none; }
+}
+
+@media (min-width: 1680px) {
+  :root {
+    --size-sidebar: 880px;
+    --size-preview: 480px;
+    --size-main-padding: 20px;
+    --size-thumb-w: 144px;
+    --size-thumb-h: 81px;
+    --size-filmstrip: 140px;
+  }
+}
+
+@media (max-height: 760px) {
+  .app .header-fields { padding: 12px 16px; }
+  .app .header-fields__title { display: none; }
+  .app .home { padding-top: 6vh; }
+}
+
+/* Sección 13.7 — bandas de la ventana con la columna Preview abierta.
+   Con Preview abierta, el espacio de trabajo se desplaza el ancho de la
+   columna para que el vídeo y el editor no cambien de tamaño. */
+
+@media (max-width: 1680px) {
+  .app.is-preview-open {
+    --size-sidebar: 720px;
+    --size-preview: 400px;
+    --size-main-padding: 12px;
+    --size-thumb-w: 112px;
+    --size-thumb-h: 63px;
+    --size-filmstrip: 116px;
+    --font-size-preview: 12px;
+    --font-line-preview: 18px;
+  }
+
+  .app.is-preview-open .workspace__main { row-gap: 8px; }
+}
+
+@media (min-width: 1681px) and (max-width: 2159px) {
+  .app.is-preview-open {
+    --size-sidebar: 800px;
+    --size-preview: 440px;
+    --size-main-padding: 16px;
+    --size-thumb-w: 128px;
+    --size-thumb-h: 72px;
+    --size-filmstrip: 128px;
+    --font-size-preview: 13px;
+    --font-line-preview: 20px;
+  }
+
+  .app.is-preview-open .workspace__main { row-gap: 12px; }
+}
+
+/* Sección 8 — sin movimiento salvo la opacidad a 90 ms. */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.spinner),
+  *:not(.spinner)::before,
+  *:not(.spinner)::after {
+    transform: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 90ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .shot-card.is-loading .shot-card__thumb {
+    animation: none !important;
+    background: var(--color-skeleton) !important;
+  }
+
+  .spinner {
+    animation-duration: 1600ms !important;
+  }
+}

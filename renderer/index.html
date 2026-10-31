@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' file: blob:; font-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Dopesheet Writer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app" id="app">
+  <header class="topbar" id="topbar">
+    <div class="topbar__brand">Dopesheet Writer</div>
+    <div class="topbar__sources" id="topbar-sources" hidden></div>
+    <div class="topbar__actions" id="topbar-actions" hidden>
+      <div class="queue-status" id="queue-status" hidden>
+        <svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="9" stroke-dasharray="42 15"></circle>
+        </svg>
+        <span class="queue-status__label" id="queue-status-label"></span>
+        <span class="queue-status__short" id="queue-status-short" aria-hidden="true"></span>
+      </div>
+    </div>
+  </header>
+  <div id="banner-region"></div>
+  <main class="home" id="home">
+    <div class="home__inner">
+      <h1 class="home__title">Dopesheet Writer</h1>
+      <p class="home__lead">Load the edited video and its XML to start writing the shotlist.</p>
+      <div class="home__zones" id="home-zones"></div>
+      <p class="home__hint">You can drop files anywhere in the window. An XML with the same name next to the video loads by itself.</p>
+      <p class="home__status" id="home-status" hidden>
+        <svg class="icon spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="9" stroke-dasharray="42 15"></circle>
+        </svg>
+        <span>Detecting shots…</span>
+      </p>
+    </div>
+  </main>
+  <div class="workspace" id="workspace" hidden>
+    <main class="workspace__main">
+      <div id="player-root"></div>
+      <section class="filmstrip" id="filmstrip-root"></section>
+    </main>
+    <aside class="sidebar" aria-label="Shot details">
+      <section class="header-fields" id="header-fields-root"></section>
+      <div class="sidebar__editor" id="editor-root"></div>
+    </aside>
+    <aside class="preview-pane" id="preview-pane" aria-label="Preview" hidden></aside>
+  </div>
+  <div class="drop-overlay" id="drop-overlay" aria-hidden="true">
+    <div class="drop-overlay__panel">
+      <svg class="icon icon--dropzone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <path d="M12 15V4"></path>
+        <path d="M7.5 8.5 12 4l4.5 4.5"></path>
+        <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"></path>
+      </svg>
+      <p class="drop-overlay__title">Drop to replace the video or XML</p>
+      <p class="drop-overlay__hint">.mp4 .mov .m4v · .xml</p>
+    </div>
+  </div>
+  <div class="toast-region" id="toast-region" aria-live="polite"></div>
+  <div id="modal-root"></div>
+  <div class="visually-hidden sr-status" id="sr-status" aria-live="polite"></div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

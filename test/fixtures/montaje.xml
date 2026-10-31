@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<xmeml version="4">
+  <sequence id="seq-montaje">
+    <rate><timebase>25</timebase><ntsc>FALSE</ntsc></rate>
+    <duration>1520</duration>
+    <media>
+      <video>
+        <format><samplecharacteristics><width>1920</width><height>1080</height></samplecharacteristics></format>
+        <track>
+          <clipitem><name>P1</name><enabled>TRUE</enabled><start>0</start><end>100</end></clipitem>
+          <clipitem><name>P2</name><enabled>TRUE</enabled><start>100</start><end>225</end></clipitem>
+          <clipitem><name>SB1</name><enabled>TRUE</enabled><start>225</start><end>809</end></clipitem>
+          <clipitem><name>SB2</name><enabled>TRUE</enabled><start>809</start><end>1520</end></clipitem>
+        </track>
+      </video>
+      <audio>
+        <track>
+          <clipitem><start>0</start><end>10</end></clipitem>
+        </track>
+      </audio>
+    </media>
+  </sequence>
+</xmeml>

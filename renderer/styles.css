@@ -1,0 +1,5 @@
+/* Hoja principal: solo importa los tres bloques, en el orden fijado por el contrato.
+   tokens -> controles comunes -> pantallas. */
+@import "css/tokens.css";
+@import "css/controls.css";
+@import "css/screens.css";
