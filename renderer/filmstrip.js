@@ -8,13 +8,15 @@ import { isShotComplete, soundbiteIndex } from '../core/shot-model.js';
 const THUMB_ERROR_TOOLTIP = "Couldn't read this frame";
 
 // Etiqueta accesible de una tarjeta. `complete` y el índice de soundbite los calcula quien llama.
-// `processing` ('transcribing' | 'translating' | null) añade el sufijo de 15.2.3.
-export function cardAriaLabel(shot, fps, complete, soundbite, processing = null) {
+// `processing` ('transcribing' | 'translating' | null) añade el sufijo de 15.2.3 y
+// `untranscribed` el de 17.11.
+export function cardAriaLabel(shot, fps, complete, soundbite, processing = null, untranscribed = false) {
   const frames = shot.endFrame - shot.startFrame;
   const status = complete ? 'complete' : 'incomplete';
   const suffix = processing ? `, ${processing}` : '';
+  const pending = untranscribed ? ', not transcribed' : '';
   if (shot.interview) {
-    return `Shot ${shot.number}, soundbite ${soundbite}, ${Math.round(frames / fps)} seconds, ${status}${suffix}`;
+    return `Shot ${shot.number}, soundbite ${soundbite}, ${Math.round(frames / fps)} seconds, ${status}${suffix}${pending}`;
   }
   return `Shot ${shot.number}, ${(frames / fps).toFixed(1)} seconds, ${status}${suffix}`;
 }
@@ -59,8 +61,11 @@ export function mount(root, o) {
   let divider = null;
   // Plano en proceso y su tipo (15.2.3): se refleja en el aria-label y en la marca.
   let processing = { number: null, kind: null };
+  // Planos en espera en alguna de las colas (15.2): no llevan la marca de 17.11.
+  let queued = new Set();
   const cards = new Map();        // number -> referencias de la tarjeta
   const loadedThumbs = new Map(); // number -> dataUrl | null (null = fallo)
+  const thumbnailListeners = new Set();
 
   function shotByNumber(number) {
     return shots.find((shot) => shot.number === number) || null;
@@ -74,18 +79,33 @@ export function mount(root, o) {
     return processing.number === number ? processing.kind : null;
   }
 
+  // Entrevista con Original vacío, sin marca de proceso ni en espera (17.11).
+  function isUntranscribed(shot, kind) {
+    return (
+      Boolean(shot.interview) &&
+      (shot.soundbite?.original ?? '').trim() === '' &&
+      !kind &&
+      !queued.has(shot.number)
+    );
+  }
+
   function applyStatus(shot, card) {
     const complete = isShotComplete(shot);
     const soundbite = soundbiteIndex(shots, shot.number);
     const kind = processingKind(shot.number);
+    const untranscribed = isUntranscribed(shot, kind);
     card.li.classList.toggle('is-complete', complete);
     card.li.classList.toggle('is-incomplete', !complete);
     card.li.classList.toggle('is-interview', shot.interview);
     card.li.classList.toggle('is-selected', shot.number === selected);
     card.li.classList.toggle('is-processing', Boolean(kind));
+    card.li.classList.toggle('is-untranscribed', untranscribed);
     card.li.setAttribute('aria-selected', shot.number === selected ? 'true' : 'false');
     card.li.tabIndex = shot.number === selected ? 0 : -1;
-    card.li.setAttribute('aria-label', cardAriaLabel(shot, fps, complete, soundbite, kind));
+    card.li.setAttribute(
+      'aria-label',
+      cardAriaLabel(shot, fps, complete, soundbite, kind, untranscribed),
+    );
     card.badge.hidden = !shot.interview;
     card.badge.textContent = shot.interview ? `SB ${soundbite}` : '';
   }
@@ -96,7 +116,12 @@ export function mount(root, o) {
     const errorIcon = icon('image-off');
     errorIcon.hidden = true;
     const badge = el('span', { class: 'shot-card__badge', hidden: true });
-    const thumb = el('div', { class: 'shot-card__thumb' }, image, errorIcon, badge);
+    const untranscribed = el(
+      'span',
+      { class: 'shot-card__untranscribed', 'aria-hidden': 'true' },
+      icon('transcribe'),
+    );
+    const thumb = el('div', { class: 'shot-card__thumb' }, image, errorIcon, badge, untranscribed);
     const numberEl = el('span', { class: 'shot-card__number', text: String(shot.number) });
     const durationEl = el('span', {
       class: 'shot-card__duration',
@@ -154,6 +179,7 @@ export function mount(root, o) {
       card.li.classList.remove('is-thumb-error');
     }
     loadedThumbs.set(number, dataUrl);
+    for (const listener of thumbnailListeners) listener(number, dataUrl);
   }
 
   function markSelection(number) {
@@ -250,16 +276,29 @@ export function mount(root, o) {
     processing = { number: number ?? null, kind: kind ?? null };
     for (const shot of shots) {
       const card = cards.get(shot.number);
-      if (card) {
-        const current = processingKind(shot.number);
-        card.li.classList.toggle('is-processing', Boolean(current));
-        card.li.setAttribute(
-          'aria-label',
-          cardAriaLabel(shot, fps, isShotComplete(shot), soundbiteIndex(shots, shot.number), current),
-        );
-      }
+      if (card) applyStatus(shot, card);
     }
   }
+
+  // Planos en espera en alguna cola (15.2): ocultan la marca `is-untranscribed`.
+  function setQueued(numbers) {
+    queued = new Set(numbers);
+    for (const shot of shots) {
+      const card = cards.get(shot.number);
+      if (card) applyStatus(shot, card);
+    }
+  }
+
+  // Miniaturas ya cargadas, para el selector de entrevistas (17.5).
+  const thumbnails = {
+    get(number) {
+      return loadedThumbs.get(number);
+    },
+    subscribe(listener) {
+      thumbnailListeners.add(listener);
+      return () => thumbnailListeners.delete(listener);
+    },
+  };
 
   function destroy() {
     list.removeEventListener('keydown', onKeyDown);
@@ -267,10 +306,22 @@ export function mount(root, o) {
     root.classList.remove('is-loading');
     cards.clear();
     loadedThumbs.clear();
+    thumbnailListeners.clear();
+    queued = new Set();
     progress = null;
     progressFill = null;
     divider = null;
   }
 
-  return { setShots, setSelected, setThumbnail, setLoadingProgress, refreshStatus, setProcessing, destroy };
+  return {
+    setShots,
+    setSelected,
+    setThumbnail,
+    setLoadingProgress,
+    refreshStatus,
+    setProcessing,
+    setQueued,
+    thumbnails,
+    destroy,
+  };
 }

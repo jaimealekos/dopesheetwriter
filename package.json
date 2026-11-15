@@ -1,7 +1,7 @@
 {
   "name": "dopesheetwriter",
   "productName": "Dopesheet Writer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Writes the agency shotlist (dopesheet) of an edited video from the video and its Premiere / Final Cut XML.",
   "author": "Jaime Alekos",
   "license": "MIT",

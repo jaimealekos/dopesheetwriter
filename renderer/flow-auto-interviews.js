@@ -1,26 +1,79 @@
-// Flujo de detección automática de entrevistas (15): al entrar al espacio de trabajo
-// con un vídeo y un XML nuevos, propone marcar los cortes finales largos como
-// entrevistas y, si se confirma, los transcribe y traduce en segundo plano de uno en uno.
+// Flujo de entrevistas (15 y 17): al entrar al espacio de trabajo con un vídeo y
+// un XML nuevos, detecta por duración y voz qué cortes finales son entrevistas y
+// abre el selector gráfico; también lo abre a mano desde la barra superior. Con lo
+// elegido marca los planos y encola la transcripción y la traducción en segundo
+// plano, de uno en uno.
 
-import { detectInterviewStart } from '../core/interview-detect.js';
-import { setInterview } from '../core/shot-model.js';
+import { INTERVIEW_MIN_SECONDS } from '../core/config.js';
+import { detectInterviewStart, voiceFractions } from '../core/interview-detect.js';
+import { languageNameFromCode } from '../core/languages.js';
+import { setInterview, updateShot } from '../core/shot-model.js';
 import { bannerCopy, soundbiteCount } from './feedback.js';
 
 // Crea el flujo. `ctx` lo monta app.js con los módulos ya enlazados:
 //   state, banner, bannerRegion, toasts, announce, commit, refreshAll,
-//   confirmInterviews, transcribeShot, translateShot, transcriberAvailable,
-//   setProgress, setProcessing, setQueued.
+//   openPicker, voiceActivity, voiceAvailable, transcribeShot, translateShot,
+//   transcriberAvailable, setProgress, setProcessing, setQueued.
 export function createAutoInterviewsFlow(ctx) {
   const { state } = ctx;
   // La cola confirmada y en marcha (de la confirmación al final).
   let running = false;
+  // El selector está en marcha: de la detección de voz hasta que se cierra.
+  let picking = false;
   // Número de la última cola: una cola vieja que termina tarde no toca la interfaz
   // de la nueva ni baja su `running`.
   let generation = 0;
+  // Fracciones de voz ya calculadas para una carga (se reutilizan en el modo manual).
+  let voicesCache = null;
+  // Detección de voz en curso, para no lanzar dos por la misma carga.
+  let voicesPending = null;
 
   // Identidad de la carga: si cambia el vídeo o el XML, la cola se para en silencio.
   function loadToken() {
     return `${state.video?.path ?? ''}\u0000${state.xml?.path ?? ''}`;
+  }
+
+  function lastNumber() {
+    return state.shots.length > 0 ? state.shots[state.shots.length - 1].number : 0;
+  }
+
+  function beginPicking() {
+    picking = true;
+    ctx.refreshAll?.();
+  }
+
+  function endPicking() {
+    if (!picking) return;
+    picking = false;
+    ctx.refreshAll?.();
+  }
+
+  // Fracciones de voz de la carga actual. Sin herramienta o con error de la
+  // herramienta, `null`: la detección sigue por duración y no se avisa al usuario.
+  async function voicesFor(token) {
+    if (voicesCache && voicesCache.token === token) return voicesCache.voices;
+    if (voicesPending && voicesPending.token === token) return voicesPending.promise;
+    if (!ctx.voiceAvailable()) return null;
+
+    const promise = (async () => {
+      let segments;
+      try {
+        segments = await ctx.voiceActivity(state.video.path);
+      } catch (error) {
+        console.warn(`Could not detect the speech in the video: ${error.message}`);
+        return null;
+      }
+      return voiceFractions(state.shots, state.xml.parsed.fps, segments);
+    })();
+
+    voicesPending = { token, promise };
+    try {
+      const voices = await promise;
+      voicesCache = { token, voices };
+      return voices;
+    } finally {
+      if (voicesPending && voicesPending.promise === promise) voicesPending = null;
+    }
   }
 
   function reportFailures(failures) {
@@ -125,7 +178,10 @@ export function createAutoInterviewsFlow(ctx) {
       setProgress(`Transcribing ${index + 1} of ${transcribeEntries.length}\u2026`);
       paintProcessing();
 
-      const result = await ctx.transcribeShot(entry.number, { quiet: true });
+      const transcribeOptions = entry.code
+        ? { quiet: true, language: entry.code }
+        : { quiet: true };
+      const result = await ctx.transcribeShot(entry.number, transcribeOptions);
       transcribingNumber = null;
       if (result.status === 'stale' || loadToken() !== token) {
         stale = true;
@@ -191,44 +247,119 @@ export function createAutoInterviewsFlow(ctx) {
     return startQueue(entries, loadToken());
   }
 
+  // Aplica el límite y las marcas del selector y, con lo elegido, arranca la cola.
+  async function applyResult(result, token) {
+    if (result === null || loadToken() !== token) return;
+
+    const languageNames = new Map();
+    for (const number of result.transcribe) {
+      const code = result.languages?.[number] ?? null;
+      if (code === null) continue;
+      const name = languageNameFromCode(code);
+      if (name === null) throw new Error(`Unknown language code "${code}".`);
+      languageNames.set(number, name);
+    }
+
+    const last = lastNumber();
+    if (result.first > 1) state.shots = setInterview(state.shots, result.first - 1, false);
+    if (result.first <= last) state.shots = setInterview(state.shots, result.first, true);
+    for (const [number, name] of languageNames) {
+      state.shots = updateShot(state.shots, number, { soundbite: { language: name } });
+    }
+
+    ctx.commit();
+    ctx.refreshAll();
+    if (result.transcribe.length === 0) return;
+    if (!ctx.transcriberAvailable()) return;
+
+    const entries = result.transcribe.map((number) => ({
+      number,
+      step: 'transcribe',
+      code: result.languages?.[number] ?? null,
+    }));
+    await startQueue(entries, token);
+  }
+
+  // Abre el selector y aplica lo elegido. Al cerrarse el selector termina la espera.
+  async function openPickerFor(first, voices, available, token, mode) {
+    const result = await ctx.openPicker({
+      shots: state.shots,
+      fps: state.xml.parsed.fps,
+      first,
+      voices,
+      transcriberAvailable: available,
+      mode,
+    });
+    endPicking();
+    await applyResult(result, token);
+  }
+
   // Al entrar al espacio de trabajo: propone y, si se confirma, marca y encola.
   async function onWorkspaceReady({ draftRestored } = {}) {
+    if (picking) return;
     if (draftRestored) return;
     if (state.shots.length === 0) return;
     if (state.shots.some((shot) => shot.interview)) return;
     if (!state.xml?.parsed) return;
 
-    const fps = state.xml.parsed.fps;
-    const first = detectInterviewStart(state.shots, fps);
-    if (first === null) return;
+    const token = loadToken();
+    const available = ctx.transcriberAvailable();
+    beginPicking();
+    try {
+      const voices = await voicesFor(token);
+      if (loadToken() !== token) return;
+
+      const first = detectInterviewStart(
+        state.shots,
+        state.xml.parsed.fps,
+        INTERVIEW_MIN_SECONDS,
+        voices,
+      );
+      if (first === null) return;
+
+      await openPickerFor(first, voices, available, token, 'auto');
+    } finally {
+      endPicking();
+    }
+  }
+
+  // Botón «Interviews…» y Alt+I: abre el selector sobre la secuencia actual.
+  async function openManual() {
+    if (running || picking) return;
+    if (state.shots.length === 0 || !state.xml?.parsed) return;
 
     const token = loadToken();
     const available = ctx.transcriberAvailable();
-    const chosen = await ctx.confirmInterviews({
-      shots: state.shots,
-      fps,
-      first,
-      transcriberAvailable: available,
-    });
-    // Clic en «Not interviews» o carga cambiada con el modal abierto: sin cambios.
-    if (chosen === null || loadToken() !== token) return;
+    beginPicking();
+    try {
+      const voices = await voicesFor(token);
+      if (loadToken() !== token) return;
 
-    state.shots = setInterview(state.shots, chosen, true);
-    ctx.commit();
-    ctx.refreshAll();
-    if (!available) return;
+      const current = state.shots.find((shot) => shot.interview);
+      const detected = current
+        ? current.number
+        : detectInterviewStart(
+            state.shots,
+            state.xml.parsed.fps,
+            INTERVIEW_MIN_SECONDS,
+            voices,
+          );
+      const first = detected ?? lastNumber() + 1;
 
-    const numbers = state.shots.filter((shot) => shot.number >= chosen).map((shot) => shot.number);
-    await startQueue(
-      numbers.map((number) => ({ number, step: 'transcribe' })),
-      token,
-    );
+      await openPickerFor(first, voices, available, token, 'manual');
+    } finally {
+      endPicking();
+    }
   }
 
   return {
     onWorkspaceReady,
+    openManual,
     isRunning() {
       return running;
+    },
+    isPicking() {
+      return picking;
     },
   };
 }

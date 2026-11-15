@@ -1141,8 +1141,12 @@ function autoHarness(options = {}) {
     cuts = AUTO_CUTS,
     fps = 25,
     available = true,
-    confirmResult = 4,
-    onConfirm,
+    voiceAvailable = false,
+    segments = [],
+    voiceError = null,
+    onVoice = null,
+    pickerResult = { first: 4, transcribe: [4, 5], languages: { 4: null, 5: null } },
+    onPicker = null,
     transcribe = async () => ({ status: 'done' }),
     translate = async () => ({ status: 'done' }),
   } = options;
@@ -1158,7 +1162,8 @@ function autoHarness(options = {}) {
   const progress = [];
   const processing = [];
   const queued = [];
-  const modalArgs = [];
+  const pickerArgs = [];
+  const voiceCalls = [];
   const transcribeCalls = [];
   const translateCalls = [];
   const timeline = [];
@@ -1181,19 +1186,26 @@ function autoHarness(options = {}) {
     announce: (text) => log.push(`say ${text}`),
     commit: () => log.push('commit'),
     refreshAll: () => log.push('refresh'),
-    confirmInterviews: async (o) => {
-      modalArgs.push(o);
-      return onConfirm ? onConfirm(o, state) : confirmResult;
+    openPicker: async (o) => {
+      pickerArgs.push(o);
+      return onPicker ? onPicker(o, state) : pickerResult;
     },
-    transcribeShot: async (number) => {
-      transcribeCalls.push(number);
+    voiceActivity: async (path) => {
+      voiceCalls.push(path);
+      if (voiceError) throw voiceError;
+      if (onVoice) await onVoice(state);
+      return segments;
+    },
+    voiceAvailable: () => voiceAvailable,
+    transcribeShot: async (number, transcribeOptions = {}) => {
+      transcribeCalls.push({ number, ...transcribeOptions });
       timeline.push(`t${number}`);
-      return transcribe(number);
+      return transcribe(number, transcribeOptions);
     },
-    translateShot: async (number) => {
+    translateShot: async (number, translateOptions = {}) => {
       translateCalls.push(number);
       timeline.push(`x${number}`);
-      return translate(number);
+      return translate(number, translateOptions);
     },
     transcriberAvailable: () => available,
     setProgress: (text) => progress.push(text),
@@ -1210,24 +1222,27 @@ function autoHarness(options = {}) {
     progress,
     processing,
     queued,
-    modalArgs,
+    pickerArgs,
+    voiceCalls,
     transcribeCalls,
     translateCalls,
     timeline,
   };
 }
 
-test('auto-interviews: propone, marca y transcribe y traduce del primero al último', async () => {
+test('auto-interviews: propone, marca y transcribe y traduce los cortes marcados', async () => {
   const h = autoHarness();
 
   await h.flow.onWorkspaceReady({ draftRestored: false });
 
-  assert.equal(h.modalArgs.length, 1);
-  assert.equal(h.modalArgs[0].first, 4);
-  assert.equal(h.modalArgs[0].fps, 25);
-  assert.equal(h.modalArgs[0].transcriberAvailable, true);
+  assert.equal(h.pickerArgs.length, 1);
+  assert.equal(h.pickerArgs[0].first, 4);
+  assert.equal(h.pickerArgs[0].fps, 25);
+  assert.equal(h.pickerArgs[0].mode, 'auto');
+  assert.equal(h.pickerArgs[0].transcriberAvailable, true);
+  assert.equal(h.pickerArgs[0].voices, null);
   assert.deepEqual(h.state.shots.map((shot) => shot.interview), [false, false, false, true, true]);
-  assert.deepEqual(h.transcribeCalls, [4, 5]);
+  assert.deepEqual(h.transcribeCalls.map((call) => call.number), [4, 5]);
   assert.deepEqual(h.translateCalls, [4, 5]);
   // Cada traducción arranca al acabar su transcripción, sin esperar a la siguiente.
   assert.deepEqual(h.timeline, ['t4', 'x4', 't5', 'x5']);
@@ -1260,17 +1275,17 @@ test('auto-interviews: progreso, marcas y cola acaban limpios', async () => {
 test('auto-interviews: no actúa con borrador restaurado ni si ya hay entrevistas', async () => {
   const draft = autoHarness();
   await draft.flow.onWorkspaceReady({ draftRestored: true });
-  assert.deepEqual(draft.modalArgs, []);
+  assert.deepEqual(draft.pickerArgs, []);
   assert.deepEqual(draft.transcribeCalls, []);
 
   const marked = autoHarness();
   marked.state.shots = setInterview(marked.state.shots, 5, true);
   await marked.flow.onWorkspaceReady({ draftRestored: false });
-  assert.deepEqual(marked.modalArgs, []);
+  assert.deepEqual(marked.pickerArgs, []);
   assert.deepEqual(marked.transcribeCalls, []);
 });
 
-test('auto-interviews: sin detección no abre el modal', async () => {
+test('auto-interviews: sin detección no abre el selector', async () => {
   const h = autoHarness({
     cuts: [
       [0, 175],
@@ -1279,11 +1294,11 @@ test('auto-interviews: sin detección no abre el modal', async () => {
     ],
   });
   await h.flow.onWorkspaceReady({ draftRestored: false });
-  assert.deepEqual(h.modalArgs, []);
+  assert.deepEqual(h.pickerArgs, []);
 });
 
-test('auto-interviews: «Not interviews» deja los planos sin cambios y sin cola', async () => {
-  const h = autoHarness({ confirmResult: null });
+test('auto-interviews: cerrar el selector deja los planos sin cambios y sin cola', async () => {
+  const h = autoHarness({ pickerResult: null });
 
   await h.flow.onWorkspaceReady({ draftRestored: false });
 
@@ -1293,11 +1308,11 @@ test('auto-interviews: «Not interviews» deja los planos sin cambios y sin cola
   assert.deepEqual(h.toasts, []);
 });
 
-test('auto-interviews: cambio de carga con el modal abierto no cambia nada', async () => {
+test('auto-interviews: cambio de carga con el selector abierto no cambia nada', async () => {
   const h = autoHarness({
-    onConfirm: (options, state) => {
+    onPicker: (_options, state) => {
       state.xml = { path: 'otro.xml', name: 'otro.xml', parsed: { fps: 25 } };
-      return 4;
+      return { first: 4, transcribe: [4, 5], languages: { 4: null, 5: null } };
     },
   });
 
@@ -1309,11 +1324,14 @@ test('auto-interviews: cambio de carga con el modal abierto no cambia nada', asy
 });
 
 test('auto-interviews: sin transcripción disponible marca y no encola', async () => {
-  const h = autoHarness({ available: false });
+  const h = autoHarness({
+    available: false,
+    pickerResult: { first: 4, transcribe: [], languages: {} },
+  });
 
   await h.flow.onWorkspaceReady({ draftRestored: false });
 
-  assert.equal(h.modalArgs[0].transcriberAvailable, false);
+  assert.equal(h.pickerArgs[0].transcriberAvailable, false);
   assert.deepEqual(h.state.shots.map((shot) => shot.interview), [false, false, false, true, true]);
   assert.deepEqual(h.transcribeCalls, []);
   assert.deepEqual(h.translateCalls, []);
@@ -1333,7 +1351,7 @@ test('auto-interviews: un fallo de transcripción no detiene el resto y ofrece r
 
   await h.flow.onWorkspaceReady({ draftRestored: false });
 
-  assert.deepEqual(h.transcribeCalls, [4, 5]);
+  assert.deepEqual(h.transcribeCalls.map((call) => call.number), [4, 5]);
   // El plano cuya transcripción falla no se traduce.
   assert.deepEqual(h.translateCalls, [4]);
   assert.equal(h.warnings.length, 1);
@@ -1348,7 +1366,7 @@ test('auto-interviews: un fallo de transcripción no detiene el resto y ofrece r
   await h.warnings[0].action.onClick();
 
   // Solo se repite el plano fallido, desde su transcripción.
-  assert.deepEqual(h.transcribeCalls, [5]);
+  assert.deepEqual(h.transcribeCalls.map((call) => call.number), [5]);
   assert.deepEqual(h.translateCalls, [5]);
   assert.equal(h.toasts.at(-1).title, '1 soundbite transcribed and translated.');
 });
@@ -1424,6 +1442,163 @@ test('auto-interviews: isRunning cubre de la confirmación al final de la cola',
   releases[1]();
   await withTimeout(run);
   assert.equal(h.flow.isRunning(), false);
+});
+
+test('auto-interviews: con voz disponible la pide una vez y pasa las fracciones al selector', async () => {
+  const h = autoHarness({ voiceAvailable: true, segments: [{ start: 0, end: 100 }] });
+
+  await h.flow.onWorkspaceReady({ draftRestored: false });
+
+  assert.deepEqual(h.voiceCalls, ['video.mp4']);
+  assert.deepEqual(h.pickerArgs[0].voices, [1, 1, 1, 1, 1]);
+  assert.equal(h.pickerArgs[0].first, 4);
+});
+
+test('auto-interviews: un fallo de la voz abre con voices null y sin aviso', async () => {
+  const h = autoHarness({ voiceAvailable: true, voiceError: new Error('no audio') });
+
+  await withoutWarnings(() => h.flow.onWorkspaceReady({ draftRestored: false }));
+
+  assert.equal(h.pickerArgs.length, 1);
+  assert.equal(h.pickerArgs[0].voices, null);
+  assert.deepEqual(h.warnings, []);
+});
+
+test('auto-interviews: un cambio de carga durante la voz no abre el selector', async () => {
+  const h = autoHarness({
+    voiceAvailable: true,
+    segments: [{ start: 0, end: 100 }],
+    onVoice: (state) => {
+      state.xml = { path: 'otro.xml', name: 'otro.xml', parsed: { fps: 25 } };
+    },
+  });
+
+  await h.flow.onWorkspaceReady({ draftRestored: false });
+
+  assert.deepEqual(h.pickerArgs, []);
+  assert.equal(h.state.shots.some((shot) => shot.interview), false);
+});
+
+test('auto-interviews: mientras se detecta la voz no abre otro selector', async () => {
+  let releaseVoice;
+  const h = autoHarness({
+    voiceAvailable: true,
+    segments: [{ start: 0, end: 100 }],
+    onVoice: () =>
+      new Promise((resolve) => {
+        releaseVoice = resolve;
+      }),
+  });
+
+  const first = h.flow.onWorkspaceReady({ draftRestored: false });
+  await flush();
+  assert.equal(h.flow.isPicking(), true);
+
+  await h.flow.openManual();
+  await h.flow.onWorkspaceReady({ draftRestored: false });
+  assert.equal(h.voiceCalls.length, 1);
+  assert.equal(h.pickerArgs.length, 0);
+
+  releaseVoice();
+  await withTimeout(first);
+  assert.equal(h.pickerArgs.length, 1);
+  assert.equal(h.flow.isPicking(), false);
+});
+
+test('auto-interviews: un idioma desconocido lanza un error claro y no encola', async () => {
+  const h = autoHarness({
+    pickerResult: { first: 4, transcribe: [5], languages: { 5: 'xx' } },
+  });
+
+  await assert.rejects(
+    h.flow.onWorkspaceReady({ draftRestored: false }),
+    /Unknown language code "xx"/,
+  );
+
+  assert.deepEqual(h.transcribeCalls, []);
+  assert.equal(h.state.shots.some((shot) => shot.interview), false);
+  assert.equal(h.flow.isPicking(), false);
+});
+
+test('auto-interviews: fija Language antes de encolar y transcribe solo las marcadas', async () => {
+  const h = autoHarness({
+    pickerResult: { first: 4, transcribe: [5], languages: { 5: 'fr' } },
+  });
+
+  await h.flow.onWorkspaceReady({ draftRestored: false });
+
+  assert.deepEqual(h.state.shots.map((shot) => shot.interview), [false, false, false, true, true]);
+  assert.equal(h.state.shots[4].soundbite.language, 'French');
+  assert.deepEqual(h.transcribeCalls, [{ number: 5, quiet: true, language: 'fr' }]);
+  assert.deepEqual(h.translateCalls, [5]);
+});
+
+test('openManual: abre en modo manual con la primera entrevista actual', async () => {
+  const h = autoHarness();
+  h.state.shots = setInterview(h.state.shots, 3, true);
+
+  await h.flow.openManual();
+
+  assert.equal(h.pickerArgs[0].mode, 'manual');
+  assert.equal(h.pickerArgs[0].first, 3);
+  assert.equal(h.pickerArgs[0].voices, null);
+});
+
+test('openManual: mover el límite a la derecha quita la entrevista que sale', async () => {
+  const h = autoHarness({
+    pickerResult: { first: 4, transcribe: [4, 5], languages: { 4: null, 5: null } },
+  });
+  h.state.shots = setInterview(h.state.shots, 3, true);
+
+  await h.flow.openManual();
+
+  assert.deepEqual(h.state.shots.map((shot) => shot.interview), [false, false, false, true, true]);
+  assert.deepEqual(h.transcribeCalls.map((call) => call.number), [4, 5]);
+});
+
+test('openManual: con el límite tras el último corte quita todas las entrevistas', async () => {
+  const h = autoHarness({
+    pickerResult: { first: 6, transcribe: [], languages: {} },
+  });
+  h.state.shots = setInterview(h.state.shots, 3, true);
+
+  await h.flow.openManual();
+
+  assert.deepEqual(h.state.shots.map((shot) => shot.interview), [false, false, false, false, false]);
+  assert.deepEqual(h.transcribeCalls, []);
+  assert.deepEqual(h.toasts, []);
+});
+
+test('openManual: reutiliza las voces de la carga sin volver a pedirlas', async () => {
+  const h = autoHarness({ voiceAvailable: true, segments: [{ start: 0, end: 100 }] });
+
+  await h.flow.onWorkspaceReady({ draftRestored: false });
+  await h.flow.openManual();
+
+  assert.equal(h.voiceCalls.length, 1);
+  assert.deepEqual(h.pickerArgs[1].voices, [1, 1, 1, 1, 1]);
+});
+
+test('openManual: no hace nada con una cola en marcha', async () => {
+  const releases = [];
+  const h = autoHarness({
+    transcribe: () =>
+      new Promise((resolve) => {
+        releases.push(() => resolve({ status: 'done' }));
+      }),
+  });
+
+  const run = h.flow.onWorkspaceReady({ draftRestored: false });
+  await flush();
+  assert.equal(h.flow.isRunning(), true);
+
+  await h.flow.openManual();
+  assert.equal(h.pickerArgs.length, 1);
+
+  releases[0]();
+  await flush();
+  releases[1]();
+  await withTimeout(run);
 });
 
 

@@ -52,5 +52,32 @@ export const TRANSCRIBE_VAD = { threshold: 0.5, minSpeechMs: 250, minSilenceMs: 
 export const TRANSCRIBE_TIMEOUT_MS = 600000; // por proceso (ffmpeg o whisper)
 export const TRANSCRIBE_MAX_SECONDS = 600; // tramo máximo
 
+// Detector de voz (Silero, whisper-vad-speech-segments de whisper.cpp) para la detección de
+// entrevistas. Opcional: sin él la detección usa solo la duración. Ruta relativa a la carpeta
+// de herramientas; ajustes = los valores por defecto de la herramienta.
+export const VOICE_TOOL_FILE = 'whisper/whisper-vad-speech-segments.exe';
+export const VOICE_VAD = { threshold: 0.5, minSpeechMs: 250, minSilenceMs: 100, speechPadMs: 30 };
+export const VOICE_TIMEOUT_MS = 60000; // por proceso (ffmpeg o detector), vídeo entero
+
+// Fracción mínima del plano con voz para que un corte largo cuente como entrevista.
+// Medido en BESTIA (2026-11-15): entrevista 0,85; vídeo con música 0,02; producto sin voz 0,00.
+export const INTERVIEW_MIN_VOICE = 0.3;
+
+// Estimación del tiempo de transcripción de un corte: fijo + proporcional a su duración.
+// Medido en BESTIA (32 hilos lógicos, whisper con 16): 20 s de audio → 12,1 s; 60 s → 23,8 s.
+export const TRANSCRIBE_ESTIMATE_FIXED_SECONDS = 6.3;
+export const TRANSCRIBE_ESTIMATE_SECONDS_PER_SECOND = 0.29;
+
+// Escucha previa de un corte en el selector de entrevistas: segundos máximos desde su inicio.
+export const INTERVIEW_PREVIEW_SECONDS = 6;
+
+// Máximo de avisos visibles en el selector de entrevistas (el resto, «and N more»).
+export const INTERVIEW_NOTES_MAX = 3;
+
+// Gráfico del selector de entrevistas (DISENO-GRAFICO §17.1).
+export const INTERVIEW_CHART_SCALE_SECONDS = 30; // una barra de 30 s o más llena el alto
+export const INTERVIEW_CHART_SLOT_MIN_PX = 8; // ancho mínimo de barra con su separación
+export const INTERVIEW_CHART_BOUNDARY_PX = 6; // hueco del límite entre imagen y entrevista
+
 // Idiomas del corrector ortográfico de Electron (los textos de la app van en inglés).
 export const SPELLCHECK_LANGUAGES = ['en-US'];

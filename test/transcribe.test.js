@@ -68,11 +68,39 @@ test('transcriberStatus: lista en orden las rutas que no existen', async () => {
   assert.deepEqual(await transcriberStatus(paths, { access }), {
     available: false,
     missing: ['b', 'd'],
+    voiceAvailable: false,
   });
   assert.deepEqual(await transcriberStatus(paths, { access: async () => {} }), {
     available: true,
     missing: [],
+    voiceAvailable: false,
   });
+});
+
+test('transcriberStatus: voiceAvailable exige available y la herramienta de voz', async () => {
+  const paths = { ffmpeg: 'a', whisper: 'b', model: 'c', vadModel: 'd', voiceTool: 'e' };
+
+  assert.deepEqual(await transcriberStatus(paths, { access: async () => {} }), {
+    available: true,
+    missing: [],
+    voiceAvailable: true,
+  });
+  assert.deepEqual(
+    await transcriberStatus(paths, {
+      access: async (file) => {
+        if (file === 'e') throw new Error('ENOENT');
+      },
+    }),
+    { available: true, missing: [], voiceAvailable: false },
+  );
+  assert.deepEqual(
+    await transcriberStatus(paths, {
+      access: async (file) => {
+        if (file === 'c') throw new Error('ENOENT');
+      },
+    }),
+    { available: false, missing: ['c'], voiceAvailable: false },
+  );
 });
 
 test('buildFfmpegArgs: -ss y -t antes de -i y acaba en el wav', () => {

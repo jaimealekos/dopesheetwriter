@@ -2,8 +2,7 @@
 // Ver docs/DISENO-GRAFICO.md.
 
 import { targetLanguageLabel } from '../core/languages.js';
-import { formatShotSeconds } from '../core/timecode.js';
-import { el, icon, button, iconButton, setDisabled, tooltip } from './ui-kit.js';
+import { el, icon, button, iconButton } from './ui-kit.js';
 
 // Duraciones de autocierre del toast y retirada tras la transición de salida.
 const TOAST_TIMEOUT_MS = { success: 8000, info: 5000 };
@@ -394,24 +393,10 @@ export function confirmRetranscribe(rootEl, { number, languageName }) {
   });
 }
 
-// --- Modal de detección de entrevistas (15.1) -----------------------------
-
-const INTERVIEW_BODY_TRANSCRIBER =
-  'These shots at the end of the sequence are long enough to be interviews. Marking them as soundbites also transcribes and translates them in the background.';
-const INTERVIEW_BODY_PLAIN =
-  'These shots at the end of the sequence are long enough to be interviews. Mark them as soundbites?';
-
-// Recuento del modal: «Shots 27–30 · 4 soundbites», «Shot 30 · 1 soundbite», sin planos.
-function interviewCountText(first, last) {
-  const count = last - first + 1;
-  if (count <= 0) return 'No shots selected';
-  if (count === 1) return `Shot ${first} \u00b7 1 soundbite`;
-  return `Shots ${first}\u2013${last} \u00b7 ${count} soundbites`;
-}
 
 // Devuelve el foco al elemento que lo tenía si sigue en el documento; si no, a la
 // tarjeta seleccionada de la tira.
-function restoreModalFocus(previous) {
+export function restoreModalFocus(previous) {
   const body = document.body;
   const stillInDocument =
     previous &&
@@ -421,199 +406,4 @@ function restoreModalFocus(previous) {
     ? previous
     : document.querySelector?.('.shot-card[aria-selected="true"]');
   if (target && typeof target.focus === 'function') target.focus();
-}
-
-/**
- * Modal de 15.1: propone marcar como entrevistas los planos `first`..último, deja
- * ajustar el primero y resuelve con el número elegido. «Not interviews», Esc o el
- * fondo resuelven null.
- */
-export function confirmInterviews(rootEl, o) {
-  return new Promise((resolve) => {
-    const last = o.shots[o.shots.length - 1].number;
-    const previous = document.activeElement;
-    let first = o.first;
-    let settled = false;
-
-    const backdrop = el('div', { class: 'modal-backdrop is-open' });
-    const modal = el('div', {
-      class: 'modal interview-detect',
-      role: 'alertdialog',
-      'aria-modal': 'true',
-      'aria-labelledby': 'modal-title',
-      'aria-describedby': 'modal-body',
-    });
-
-    const title = el('h2', {
-      class: 'modal__title',
-      id: 'modal-title',
-      text: 'Interview cuts detected',
-    });
-    const body = el('p', {
-      class: 'modal__body',
-      id: 'modal-body',
-      text: o.transcriberAvailable ? INTERVIEW_BODY_TRANSCRIBER : INTERVIEW_BODY_PLAIN,
-    });
-
-    const count = el('p', {
-      class: 'interview-detect__count',
-      'aria-live': 'polite',
-      'aria-atomic': 'true',
-    });
-    const stepper = el('div', {
-      class: 'interview-detect__stepper',
-      role: 'group',
-      'aria-label': 'Adjust interview shots',
-    });
-    const fewer = button({
-      variant: 'secondary',
-      label: 'Fewer',
-      className: 'interview-detect__fewer',
-      onClick: () => adjust(1),
-    });
-    const more = button({
-      variant: 'secondary',
-      label: 'More',
-      className: 'interview-detect__more',
-      onClick: () => adjust(-1),
-    });
-    stepper.append(fewer, more);
-
-    const range = el('div', { class: 'interview-detect__range' }, count, stepper);
-    const list = el('ul', { class: 'interview-detect__list', 'aria-label': 'Shots to mark' });
-    const empty = el('p', {
-      class: 'interview-detect__empty',
-      text: 'Press More to add shots.',
-    });
-
-    const actions = el('div', { class: 'modal__actions' });
-    const cancel = button({
-      variant: 'secondary',
-      label: 'Not interviews',
-      className: 'interview-detect__cancel',
-      onClick: () => close(null),
-    });
-    const confirm = button({
-      variant: 'primary',
-      label: 'Mark as interviews',
-      className: 'interview-detect__confirm',
-      onClick: () => {
-        if (first > last) return;
-        close(first);
-      },
-    });
-    actions.append(cancel, confirm);
-
-    modal.append(title, body, range, list, empty, actions);
-    backdrop.append(modal);
-
-    tooltip(fewer, () => (first > last ? 'No shots left to remove' : `Remove shot ${first}`));
-    tooltip(more, () => {
-      if (first <= 1) return 'All shots are included';
-      const previousShot = o.shots.find((shot) => shot.number === first - 1);
-      const duration = previousShot
-        ? formatShotSeconds(previousShot.endFrame - previousShot.startFrame, o.fps)
-        : '';
-      return `Add shot ${first - 1} (${duration})`;
-    });
-    tooltip(confirm, () => (first > last ? 'Add at least one shot' : ''));
-
-    function shotDuration(number) {
-      const shot = o.shots.find((item) => item.number === number);
-      if (!shot) return '';
-      return formatShotSeconds(shot.endFrame - shot.startFrame, o.fps);
-    }
-
-    function render(moved) {
-      const visible = last - first + 1;
-      count.textContent = interviewCountText(first, last);
-
-      list.textContent = '';
-      for (let number = first; number <= last; number += 1) {
-        list.append(
-          el(
-            'li',
-            { class: 'interview-detect__item' },
-            el('span', { class: 'interview-detect__shot', text: `Shot ${number}` }),
-            el('span', {
-              class: 'interview-detect__duration',
-              text: shotDuration(number),
-            }),
-          ),
-        );
-      }
-      list.hidden = visible <= 0;
-      empty.hidden = visible > 0;
-
-      setDisabled(fewer, visible <= 0);
-      setDisabled(more, first <= 1);
-      setDisabled(confirm, visible <= 0);
-
-      updateListTabindex();
-      if (moved) list.scrollTop = 0;
-    }
-
-    // Solo se puede tabular a la lista cuando desborda (para recorrerla con flechas).
-    // El desbordamiento real solo se conoce con el modal ya insertado.
-    function updateListTabindex() {
-      const overflows = list.scrollHeight > list.clientHeight;
-      if (overflows) list.setAttribute('tabindex', '0');
-      else list.removeAttribute('tabindex');
-    }
-
-    function adjust(delta) {
-      if (delta > 0 && first > last) return;
-      if (delta < 0 && first <= 1) return;
-      first += delta;
-      render(true);
-    }
-
-    // Enfocables en orden de tabulación, calculados en cada Tab (la lista puede entrar o salir).
-    function focusables() {
-      const items = [fewer, more];
-      if (list.getAttribute('tabindex') === '0') items.push(list);
-      items.push(cancel, confirm);
-      return items;
-    }
-
-    function onKeydown(event) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        close(null);
-        return;
-      }
-      if (event.key !== 'Tab') return;
-      const items = focusables();
-      const firstItem = items[0];
-      const lastItem = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === firstItem) {
-        event.preventDefault();
-        lastItem.focus();
-      } else if (!event.shiftKey && document.activeElement === lastItem) {
-        event.preventDefault();
-        firstItem.focus();
-      }
-    }
-
-    function close(result) {
-      if (settled) return;
-      settled = true;
-      document.removeEventListener('keydown', onKeydown);
-      backdrop.remove();
-      restoreModalFocus(previous);
-      resolve(result);
-    }
-
-    backdrop.addEventListener('pointerdown', (event) => {
-      if (event.target === backdrop) close(null);
-    });
-    document.addEventListener('keydown', onKeydown);
-
-    // Se pinta antes de insertar: la región aria-live no anuncia el recuento inicial.
-    render(false);
-    rootEl.append(backdrop);
-    // Ya insertado se puede medir de verdad si la lista desborda.
-    updateListTabindex();
-    confirm.focus();
-  });
 }

@@ -25,6 +25,7 @@ export function resolveTranscriberPaths(baseDir) {
 }
 
 // Comprueba que existen todas las herramientas; missing lleva las rutas que faltan.
+// La herramienta de voz es opcional: available no depende de ella.
 export async function transcriberStatus(paths, options = {}) {
   const access = options.access ?? fs.access;
   const missing = [];
@@ -35,7 +36,17 @@ export async function transcriberStatus(paths, options = {}) {
       missing.push(paths[key]);
     }
   }
-  return { available: missing.length === 0, missing };
+  const available = missing.length === 0;
+  let voiceAvailable = false;
+  if (available && typeof paths.voiceTool === 'string' && paths.voiceTool !== '') {
+    try {
+      await access(paths.voiceTool);
+      voiceAvailable = true;
+    } catch {
+      voiceAvailable = false;
+    }
+  }
+  return { available, missing, voiceAvailable };
 }
 
 // Segundos con tres decimales, como los espera ffmpeg.
@@ -89,7 +100,7 @@ export function parseWhisperJson(json) {
 
 // Ejecuta un proceso: el código de salida distinto de 0 resuelve; solo rechaza por
 // tiempo agotado o si el ejecutable no arranca.
-function defaultRunProcess(command, args, { timeoutMs }) {
+export function defaultRunProcess(command, args, { timeoutMs }) {
   return new Promise((resolve, reject) => {
     execFile(
       command,
@@ -109,7 +120,7 @@ function defaultRunProcess(command, args, { timeoutMs }) {
 }
 
 // Última línea no vacía de una salida de error.
-function lastLine(stderr) {
+export function lastLine(stderr) {
   const lines = String(stderr ?? '').split(/\r?\n/).filter((line) => line.trim() !== '');
   return lines.length > 0 ? lines[lines.length - 1].trim() : 'no output';
 }

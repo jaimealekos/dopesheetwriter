@@ -53,6 +53,25 @@ foreach ($par in $pares) {
     $copiados += $par.A
 }
 
+# La herramienta de deteccion de voz es opcional: si no aparece, se avisa y se sigue.
+$vozNombre = 'whisper-vad-speech-segments.exe'
+$vozCandidatos = @(
+    (Join-Path $whisperOrigen $vozNombre),
+    (Join-Path $Origen ".cache\extract-whisper-cpp\Release\$vozNombre")
+)
+$vozOrigen = $vozCandidatos | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if (-not $vozOrigen) {
+    Write-Warning "No se encontro $vozNombre en tools\whisper-cpp ni en .cache\extract-whisper-cpp\Release; la deteccion de voz quedara desactivada."
+} else {
+    $vozDestino = Join-Path $destino "whisper\$vozNombre"
+    $vozExistente = Get-Item -LiteralPath $vozDestino -ErrorAction SilentlyContinue
+    if (-not $vozExistente -or $vozExistente.Length -ne (Get-Item -LiteralPath $vozOrigen).Length) {
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $vozDestino) | Out-Null
+        Copy-Item -LiteralPath $vozOrigen -Destination $vozDestino -Force
+        $copiados += "whisper\$vozNombre"
+    }
+}
+
 if ($copiados.Count -eq 0) {
     Write-Host 'Nada que copiar: vendor\transcriber ya esta al dia.'
 } else {

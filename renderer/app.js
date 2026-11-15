@@ -12,14 +12,16 @@ import {
   pendingTranslations,
 } from '../core/shot-model.js';
 import { AUTOSAVE_DELAY_MS, DEFAULT_LOCATION } from '../core/config.js';
+import { LANGUAGE_NAMES } from '../core/languages.js';
 import {
   createBanner,
   createToasts,
   confirmReplaceTranslation,
   confirmReplaceOriginal,
-  confirmInterviews,
   confirmRetranscribe,
 } from './feedback.js';
+import { openInterviewPicker } from './interview-picker.js';
+import { button, setDisabled, tooltip } from './ui-kit.js';
 import { mount as mountPlayer, shotLabel } from './player.js';
 import { mount as mountFilmstrip } from './filmstrip.js';
 import { mount as mountEditor } from './shot-editor.js';
@@ -124,7 +126,10 @@ const editor = mountEditor(dom.editorRoot, {
 const queueSlots = createQueueSlots({
   setStatus: setQueueStatus,
   setProcessing: (number, kind) => filmstrip.setProcessing(number, kind),
-  setQueued: (numbers) => editor.setQueued(numbers),
+  setQueued: (numbers) => {
+    editor.setQueued(numbers);
+    filmstrip.setQueued(numbers);
+  },
 });
 
 const chips = mountChips(dom.topbarSources, { onChange: (kind) => loader.pick(kind) });
@@ -186,16 +191,20 @@ const transcribeFlow = createTranscribeFlow({
 
 // La herramienta de transcripción se consulta una sola vez, al arrancar.
 let transcriberReady = false;
+let voiceReady = false;
 dsw
   .transcriberStatus()
   .then((status) => {
     transcriberReady = Boolean(status.available);
+    voiceReady = Boolean(status.voiceAvailable);
     transcribeFlow.setAvailability(status);
   })
   .catch((error) => {
     console.warn(`Could not check the transcriber: ${error.message}`);
     transcribeFlow.setAvailability({ available: false, missing: [] });
   });
+
+const languageOptions = Object.entries(LANGUAGE_NAMES).map(([code, name]) => ({ code, name }));
 
 const autoInterviewsFlow = createAutoInterviewsFlow({
   state,
@@ -205,7 +214,18 @@ const autoInterviewsFlow = createAutoInterviewsFlow({
   announce,
   commit,
   refreshAll,
-  confirmInterviews: (options) => confirmInterviews(dom.modalRoot, options),
+  openPicker: (options) =>
+    openInterviewPicker(dom.modalRoot, {
+      ...options,
+      languages: languageOptions,
+      thumbnails: filmstrip.thumbnails,
+      videoUrl: state.video.url || null,
+      onPreviewStart: () => {
+        if (player.isPlaying()) player.togglePlay();
+      },
+    }),
+  voiceActivity: (videoPath) => dsw.voiceActivity(videoPath),
+  voiceAvailable: () => voiceReady,
   transcribeShot: (number, options) => transcribeFlow.transcribeShot(number, options),
   translateShot: (number, options) => translateFlow.translateShot(number, options),
   transcriberAvailable: () => transcriberReady,
@@ -229,6 +249,39 @@ const retranscribeFlow = createRetranscribeFlow({
   setProcessing: (number, kind) => queueSlots.setProcessing('retranscribe', number, kind),
   setQueued: (numbers) => queueSlots.setQueued('retranscribe', numbers),
 });
+
+// Botón «Interviews…» (17.10): primer hijo de .topbar__buttons. Abre el selector a mano.
+const interviewsButton = button({
+  variant: 'secondary',
+  icon: 'transcribe',
+  label: 'Interviews\u2026',
+  className: 'interviews-button',
+});
+const interviewsState = { disabled: true, tooltip: 'Load a video and its XML first' };
+
+function updateInterviewsButton() {
+  const hasWorkspace =
+    !dom.workspace.hidden && Boolean(state.xml.parsed) && state.shots.length > 0;
+  const busy =
+    autoInterviewsFlow.isRunning() ||
+    retranscribeFlow.isRunning() ||
+    autoInterviewsFlow.isPicking();
+  interviewsState.tooltip = !hasWorkspace
+    ? 'Load a video and its XML first'
+    : busy
+      ? 'Wait for the background transcription to finish'
+      : 'Choose interview cuts';
+  interviewsState.disabled = !hasWorkspace || busy;
+  setDisabled(interviewsButton, interviewsState.disabled);
+}
+
+interviewsButton.addEventListener('click', () => {
+  if (interviewsState.disabled) return;
+  autoInterviewsFlow.openManual();
+});
+tooltip(interviewsButton, () => interviewsState.tooltip, { kbd: 'Alt+I' });
+progressPanel.buttonsEl.prepend(interviewsButton);
+updateInterviewsButton();
 
 const loader = createLoadFlow({
   state,
@@ -281,6 +334,7 @@ function totalFramesOf() {
 
 // Refresca todos los paneles con el estado actual (sin tocar el borrador).
 function refreshAll() {
+  updateInterviewsButton();
   if (!state.xml.parsed || state.shots.length === 0) return;
   const fps = fpsOf();
   const done = progress(state.shots);
@@ -399,6 +453,7 @@ function enterWorkspace() {
   dom.topbarSources.hidden = false;
   dom.topbarActions.hidden = false;
   chips.set({ videoName: state.video.name, xmlName: state.xml.name });
+  updateInterviewsButton();
   if (wasHidden) {
     // Al desaparecer la pantalla de inicio, el foco no debe perderse.
     const target =
@@ -414,6 +469,7 @@ function leaveWorkspace() {
   dom.topbarSources.hidden = true;
   dom.topbarActions.hidden = true;
   dom.homeStatus.hidden = true;
+  updateInterviewsButton();
   // La columna Preview se cierra al salir; un fallo al cerrarla no bloquea la salida.
   previewFlow.setPreviewOpen(false).catch((error) => {
     console.warn(`Could not close the preview column: ${error.message}`);
@@ -484,6 +540,12 @@ function onGlobalKeydown(event) {
     if (modalOpen) return;
     event.preventDefault();
     previewFlow.toggleOpen();
+    return;
+  }
+  if (event.altKey && event.code === 'KeyI') {
+    if (modalOpen || interviewsState.disabled) return;
+    event.preventDefault();
+    autoInterviewsFlow.openManual();
     return;
   }
   if (event.altKey && event.code === 'KeyR') {

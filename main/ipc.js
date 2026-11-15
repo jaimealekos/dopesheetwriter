@@ -24,6 +24,7 @@ export function registerIpc(deps) {
     translateText,
     transcriber,
     transcriberStatus,
+    voiceDetector,
     adjustWindowWidth,
   } = deps;
 
@@ -86,6 +87,7 @@ export function registerIpc(deps) {
   handle('dsw:transcribe', (videoPath, startSeconds, endSeconds, language) =>
     transcriber.transcribe(videoPath, startSeconds, endSeconds, language),
   );
+  handle('dsw:voiceActivity', (videoPath) => voiceDetector.detect(videoPath));
   handle('dsw:adjustWindowWidth', (delta) => {
     if (!Number.isInteger(delta)) {
       throw new Error('delta must be a finite integer.');

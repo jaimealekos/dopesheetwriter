@@ -32,7 +32,7 @@ const BLOCKS = [
   'shot-card', 'header-fields', 'shot-editor', 'preview', 'preview-pane',
   'preview-toggle', 'translate-button', 'transcribe-button', 'sidebar__editor', 'modal',
   'toast', 'field', 'switch', 'segmented', 'source-chip', 'tooltip',
-  'button', 'icon-button', 'progress',
+  'button', 'icon-button', 'progress', 'interview-picker',
 ];
 
 test('index.html contiene los ids y la CSP del contrato', () => {
@@ -79,6 +79,9 @@ test('tokens.css declara todas las variables de la sección 1 del diseño', () =
   );
   assert.ok(keys.size > 100, `solo se extrajeron ${keys.size} variables del diseño`);
 
+  // --size-detect-list-max se borró con el modal 15.1 (17.15).
+  keys.delete('--size-detect-list-max');
+
   for (const key of keys) {
     assert.ok(tokens.includes(`${key}:`), `falta la variable ${key} en tokens.css`);
   }
@@ -107,32 +110,61 @@ test('aparecen los media queries de la sección 11 y prefers-reduced-motion', ()
   }
 });
 
-test('§15: token, clases del modal de detección y de la cola en la barra', () => {
+test('§17: tokens, clases del selector y de la cola en la barra', () => {
   const html = read('renderer/index.html');
   const css = allCss();
   const tokens = read('renderer/css/tokens.css');
 
-  assert.ok(tokens.includes('--size-detect-list-max:'), 'falta --size-detect-list-max');
+  assert.ok(tokens.includes('--size-picker:'), 'falta --size-picker');
+  assert.ok(tokens.includes('--color-chart-image:'), 'falta --color-chart-image');
+  assert.equal(tokens.includes('--size-detect-list-max:'), false, 'sigue --size-detect-list-max');
   assert.ok(html.includes('id="queue-status"'), 'falta el nodo de la cola');
 
   const selectors = [
-    '.interview-detect__range',
-    '.interview-detect__count',
-    '.interview-detect__stepper',
-    '.interview-detect__list',
-    '.interview-detect__list:focus-visible',
-    '.interview-detect__item',
-    '.interview-detect__shot',
-    '.interview-detect__duration',
-    '.interview-detect__empty',
+    '.interview-picker__chart',
+    '.interview-picker__legend',
+    '.interview-picker__bars',
+    '.interview-picker__bar',
+    '.interview-picker__fill',
+    '.interview-picker__speech',
+    '.interview-picker__handle',
+    '.interview-picker__grip',
+    '.interview-picker__peek',
+    '.interview-picker__notes',
+    '.interview-picker__rows',
+    '.interview-picker__rows:focus-visible',
+    '.interview-picker__row',
+    '.interview-picker__pick',
+    '.interview-picker__done',
+    '.interview-picker__empty',
+    '.interview-picker__estimate',
+    '.checkbox',
+    '.checkbox__input',
+    '.checkbox__box',
     '.queue-status',
     '.queue-status__label',
     '.queue-status__short',
     '.shot-card__spinner',
     '.shot-card.is-processing .shot-card__status',
     '.shot-card.is-processing .shot-card__spinner',
+    '.interviews-button',
+    '.shot-card__untranscribed',
+    '.shot-card.is-untranscribed .shot-card__untranscribed',
   ];
   for (const selector of selectors) {
     assert.ok(css.includes(selector), `falta el selector ${selector}`);
   }
+  for (const selector of ['.interview-detect__range', '.interview-detect__list']) {
+    assert.equal(css.includes(selector), false, `sigue el selector ${selector}`);
+  }
+});
+
+test('§17.10: la barra superior deja sitio al botón Interviews…', () => {
+  const screens = read('renderer/css/screens.css');
+  const tokens = read('renderer/css/tokens.css');
+
+  assert.match(screens, /\.topbar__brand\s*\{[^}]*flex:\s*none/);
+  assert.match(screens, /\.topbar__brand\s*\{[^}]*white-space:\s*nowrap/);
+  assert.match(screens, /\.topbar__sources\s*\{[^}]*min-width:\s*0/);
+  assert.match(tokens, /@media \(max-width: 1679px\)\s*\{\s*:root\s*\{\s*--size-chip-max:\s*200px/);
 });

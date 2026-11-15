@@ -13,7 +13,7 @@ Desktop app that writes the agency shotlist (dopesheet) of an edited video repor
 
 - **Cuts from the XML.** Reads xmeml v4 (Premiere, Final Cut 7), one shot per clip on V1, with its first frame as a thumbnail.
 - **Guided annotation.** Shot size, camera movement and description per shot; progress bar and `Ctrl+Enter` to jump to the next pending shot.
-- **Interviews.** Detects the long cuts at the end as soundbites and asks before marking them.
+- **Interviews.** Detects the long cuts at the end as soundbites (length and speech, Silero VAD) and shows every cut on a chart: drag the boundary, pick which interviews to transcribe and in which language, hover for a thumbnail, click to listen.
 - **Local transcription.** Whisper large-v3 + Silero VAD on your machine (Windows). Detects the language; change it and the app offers to transcribe again.
 - **Background queue.** Transcription and translation run while you keep working. Changes pile up in the same queue.
 - **Translation.** English → Spanish, any other language → English, in one click.
@@ -65,7 +65,7 @@ Without them the app works; the Transcribe button stays disabled.
 
 1. Drop the video (its XML with the same name loads by itself) or pick both.
 2. Fill in the header and annotate each shot.
-3. Confirm the detected interviews; transcription and translation start in the background.
+3. Check the detected interviews on the chart (or open it later with **Interviews…**, Alt+I); transcription and translation of the ticked ones start in the background.
 4. Review, then **Generate**.
 
 ## Privacy

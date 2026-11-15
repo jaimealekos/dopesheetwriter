@@ -37,6 +37,10 @@
   --color-error-bg: #301c1e;
   --color-interview: #b59cff;        /* solo planos de entrevista (soundbite) */
   --color-on-interview: #1a1030;
+  --color-chart-image: #868a93;
+  --color-chart-image-tint: #383a3e;
+  --color-chart-interview-tint: #463f5f;
+  --color-chart-zone: #23222c;
   --color-track: #34373d;            /* pista de la barra de progreso */
   --color-cut: #a4a8b0;              /* marcas de corte */
   --color-playhead: #ececef;
@@ -132,7 +136,18 @@
   --size-dropzone-h: 240px;
   --size-home-max: 880px;
   --size-modal: 440px;
-  --size-detect-list-max: 200px; /* 8 filas de 24px + 8px de relleno (15.1) */
+  --size-picker: 720px;              /* ancho del selector de entrevistas */
+  --size-picker-plot: 112px;
+  --size-picker-rail: 28px;
+  --size-picker-axis: 48px;
+  --size-picker-bar-min-h: 3px;
+  --size-picker-grip: 16px;
+  --size-picker-row: 40px;
+  --size-picker-rows-max: 248px;
+  --size-picker-language: 136px;
+  --size-peek-w: 160px;
+  --size-peek-h: 90px;
+  --size-checkbox: 16px;
   --size-toast: 360px;
   --size-tooltip-max: 280px;
   --size-volume: 88px;
@@ -164,6 +179,10 @@
   --z-toast: 40;
   --z-modal: 50;
   --z-tooltip: 60;
+}
+
+@media (max-width: 1679px) {
+  :root { --size-chip-max: 200px; }
 }
 
 @media (prefers-color-scheme: light) {
@@ -198,6 +217,10 @@
     --color-error-bg: #faeeef;
     --color-interview: #6b46c9;
     --color-on-interview: #ffffff;
+    --color-chart-image: #676c75;
+    --color-chart-image-tint: #dedfe1;
+    --color-chart-interview-tint: #ded6f3;
+    --color-chart-zone: #f3f0fb;
     --color-track: #d5d8dd;
     --color-cut: #4f545d;
     --color-playhead: #16181d;

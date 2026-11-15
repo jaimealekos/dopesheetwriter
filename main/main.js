@@ -5,13 +5,14 @@ import { fileURLToPath } from 'node:url';
 
 import { app, BrowserWindow, Menu, dialog, ipcMain, screen, session, shell } from 'electron';
 
-import { SPELLCHECK_LANGUAGES, TRANSCRIBER_DIR_NAME } from '../core/config.js';
+import { SPELLCHECK_LANGUAGES, TRANSCRIBER_DIR_NAME, VOICE_TOOL_FILE } from '../core/config.js';
 import { parseXmeml } from '../core/xml-shots.js';
 import { registerIpc } from './ipc.js';
 import { chooseSpellcheckLanguages } from './spellcheck.js';
 import { createStorage } from './storage.js';
 import { createTranscriber, resolveTranscriberPaths, transcriberStatus } from './transcribe.js';
 import { translateText } from './translate.js';
+import { createVoiceDetector } from './voice-activity.js';
 import { computeWidthChange } from './window-width.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -118,7 +119,9 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
-    const transcriberPaths = resolveTranscriberPaths(transcriberBaseDir());
+    const baseDir = transcriberBaseDir();
+    const transcriberPaths = resolveTranscriberPaths(baseDir);
+    const voicePaths = { ...transcriberPaths, voiceTool: path.join(baseDir, VOICE_TOOL_FILE) };
     registerIpc({
       ipcMain,
       dialog,
@@ -129,7 +132,8 @@ if (!app.requestSingleInstanceLock()) {
       getWindow: () => mainWindow,
       translateText,
       transcriber: createTranscriber({ paths: transcriberPaths }),
-      transcriberStatus: () => transcriberStatus(transcriberPaths),
+      transcriberStatus: () => transcriberStatus(voicePaths),
+      voiceDetector: createVoiceDetector({ paths: voicePaths }),
       adjustWindowWidth,
     });
 

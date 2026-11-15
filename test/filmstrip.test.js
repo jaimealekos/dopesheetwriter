@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createShots } from '../core/shot-model.js';
+import { createShots, setInterview, updateShot } from '../core/shot-model.js';
 import { cardAriaLabel, nextIndexForKey, mount as mountFilmstrip } from '../renderer/filmstrip.js';
 
 // Plano mínimo con los campos que usa cardAriaLabel.
@@ -164,6 +164,14 @@ test('cardAriaLabel añade el sufijo del plano en proceso', () => {
   );
 });
 
+test('cardAriaLabel añade el sufijo de entrevista sin transcribir', () => {
+  const shot = makeShot({ number: 28, startFrame: 100, endFrame: 625, interview: true });
+  assert.equal(
+    cardAriaLabel(shot, 25, false, 1, null, true),
+    'Shot 28, soundbite 1, 21 seconds, incomplete, not transcribed',
+  );
+});
+
 test('setProcessing pone y quita is-processing y el sufijo del aria-label', () => {
   globalThis.document = fakeDocument();
   const root = new Node('div');
@@ -194,4 +202,78 @@ test('setProcessing pone y quita is-processing y el sufijo del aria-label', () =
   filmstrip.setProcessing(null, null);
   assert.equal(card.classList.contains('is-processing'), false);
   assert.equal(card.getAttribute('aria-label'), 'Shot 4, 2.0 seconds, incomplete');
+});
+
+// --- Marca is-untranscribed (17.11) y miniaturas para el selector (17.5) ---
+
+function untranscribedShots() {
+  const shots = createShots([
+    { startFrame: 0, endFrame: 100 },
+    { startFrame: 100, endFrame: 200 },
+    { startFrame: 200, endFrame: 300 },
+    { startFrame: 300, endFrame: 400 },
+  ]);
+  return setInterview(shots, 3, true);
+}
+
+test('una entrevista sin Original lleva is-untranscribed y el sufijo del aria-label', () => {
+  globalThis.document = fakeDocument();
+  const root = new Node('div');
+  const filmstrip = mountFilmstrip(root, { onSelect: () => {} });
+  filmstrip.setShots(untranscribedShots(), 25);
+
+  const cards = collectByClass(root, 'shot-card');
+  assert.equal(cards[2].classList.contains('is-untranscribed'), true);
+  assert.equal(cards[1].classList.contains('is-untranscribed'), false);
+  assert.equal(
+    cards[2].getAttribute('aria-label'),
+    'Shot 3, soundbite 1, 4 seconds, incomplete, not transcribed',
+  );
+});
+
+test('con Original, en proceso o en espera desaparece is-untranscribed', () => {
+  globalThis.document = fakeDocument();
+  const root = new Node('div');
+  const filmstrip = mountFilmstrip(root, { onSelect: () => {} });
+  let shots = untranscribedShots();
+  filmstrip.setShots(shots, 25);
+  const card = collectByClass(root, 'shot-card')[2];
+
+  filmstrip.setProcessing(3, 'transcribing');
+  assert.equal(card.classList.contains('is-untranscribed'), false);
+  filmstrip.setProcessing(null, null);
+  assert.equal(card.classList.contains('is-untranscribed'), true);
+
+  filmstrip.setQueued([3]);
+  assert.equal(card.classList.contains('is-untranscribed'), false);
+  filmstrip.setQueued([]);
+  assert.equal(card.classList.contains('is-untranscribed'), true);
+
+  shots = updateShot(shots, 3, { soundbite: { original: 'Hola' } });
+  filmstrip.refreshStatus(shots);
+  assert.equal(card.classList.contains('is-untranscribed'), false);
+  assert.equal(
+    card.getAttribute('aria-label'),
+    'Shot 3, soundbite 1, 4 seconds, incomplete',
+  );
+});
+
+test('las miniaturas cargadas se leen y se anuncian a quien se suscribe', () => {
+  globalThis.document = fakeDocument();
+  const root = new Node('div');
+  const filmstrip = mountFilmstrip(root, { onSelect: () => {} });
+  filmstrip.setShots(untranscribedShots(), 25);
+
+  const seen = [];
+  const unsubscribe = filmstrip.thumbnails.subscribe((number, url) => seen.push([number, url]));
+  assert.equal(filmstrip.thumbnails.get(1), undefined);
+
+  filmstrip.setThumbnail(1, 'data:image/png;base64,AAA');
+  assert.equal(filmstrip.thumbnails.get(1), 'data:image/png;base64,AAA');
+  assert.deepEqual(seen, [[1, 'data:image/png;base64,AAA']]);
+
+  unsubscribe();
+  filmstrip.setThumbnail(2, 'data:image/png;base64,BBB');
+  assert.deepEqual(seen, [[1, 'data:image/png;base64,AAA']]);
+  assert.equal(filmstrip.thumbnails.get(2), 'data:image/png;base64,BBB');
 });

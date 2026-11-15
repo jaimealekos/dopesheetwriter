@@ -42,7 +42,8 @@ function setup({ dialogResult, storage, ...rest } = {}) {
     getWindow: () => undefined,
     translateText: async (text) => ({ text, provider: 'google' }),
     transcriber: { transcribe: async () => ({ text: '', language: null, languageName: null }) },
-    transcriberStatus: async () => ({ available: true, missing: [] }),
+    transcriberStatus: async () => ({ available: true, missing: [], voiceAvailable: false }),
+    voiceDetector: { detect: async () => [] },
     adjustWindowWidth: (delta) => delta,
     ...rest,
   });
@@ -60,10 +61,10 @@ function dialogOptions(call) {
   return call[call.length - 1];
 }
 
-test('registerIpc: registra exactamente los 17 canales de la tabla', () => {
+test('registerIpc: registra exactamente los 18 canales de la tabla', () => {
   const { handlers } = setup();
 
-  assert.equal(handlers.size, 17);
+  assert.equal(handlers.size, 18);
   assert.deepEqual(
     [...handlers.keys()].sort(),
     [
@@ -83,6 +84,7 @@ test('registerIpc: registra exactamente los 17 canales de la tabla', () => {
       'dsw:transcriberStatus',
       'dsw:translate',
       'dsw:videoUrl',
+      'dsw:voiceActivity',
       'dsw:writeShotlist',
     ],
   );
@@ -319,14 +321,47 @@ test('dsw:transcribe: un error de la transcripción llega como { ok: false, erro
   });
 });
 
+test('dsw:voiceActivity: pasa la ruta al detector y devuelve los segmentos', async () => {
+  const calls = [];
+  const { invoke } = setup({
+    voiceDetector: {
+      detect: async (...args) => {
+        calls.push(args);
+        return [{ start: 0.3, end: 4.12 }];
+      },
+    },
+  });
+
+  assert.deepEqual(await invoke('dsw:voiceActivity', '/v.mp4'), {
+    ok: true,
+    value: [{ start: 0.3, end: 4.12 }],
+  });
+  assert.deepEqual(calls, [['/v.mp4']]);
+});
+
+test('dsw:voiceActivity: un error del detector llega como { ok: false, error }', async () => {
+  const { invoke } = setup({
+    voiceDetector: {
+      detect: async () => {
+        throw new Error('This video has no audio track.');
+      },
+    },
+  });
+
+  assert.deepEqual(await invoke('dsw:voiceActivity', '/v.mp4'), {
+    ok: false,
+    error: 'This video has no audio track.',
+  });
+});
+
 test('dsw:transcriberStatus: devuelve el estado de las herramientas', async () => {
   const { invoke } = setup({
-    transcriberStatus: async () => ({ available: false, missing: ['/x/ffmpeg.exe'] }),
+    transcriberStatus: async () => ({ available: false, missing: ['/x/ffmpeg.exe'], voiceAvailable: false }),
   });
 
   assert.deepEqual(await invoke('dsw:transcriberStatus'), {
     ok: true,
-    value: { available: false, missing: ['/x/ffmpeg.exe'] },
+    value: { available: false, missing: ['/x/ffmpeg.exe'], voiceAvailable: false },
   });
 });
 

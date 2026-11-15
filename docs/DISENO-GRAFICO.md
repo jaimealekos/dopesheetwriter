@@ -1422,6 +1422,8 @@ Esta sección manda sobre todo lo anterior que la contradiga (13.8, 14.1, 14.2 y
 
 ### 15.1 Modal `interview-detect`
 
+> **Sustituida por §17** (selector de entrevistas): el modal, sus textos, su token `--size-detect-list-max` y las clases `.interview-detect*` desaparecen; 15.3–15.6 dejan de valer en lo que toca a este modal.
+
 Cuándo: al entrar en el espacio de trabajo tras cargar vídeo + XML, cuando termina la entrada de 240ms (`--motion-slow`, 8), solo sin borrador con entrevistas y si la detección propone algún plano. F = primer plano propuesto, L = último plano, k = L − F + 1 planos. Misma caja, fondo, animación, trampa de foco y cierre que 6.11 (`openConfirm`), con dos diferencias: más de dos enfocables y resultado numérico.
 
 ```
@@ -1590,3 +1592,472 @@ Lo que no se dice aquí se hereda de 14 y 15 (mismos componentes, colores y acce
 - Tira y editor: como 15.2.3 y 15.2.4; un plano en espera de retranscripción lleva el tooltip «Queued for transcription».
 - Final sin fallos: `toast--success`, «2 soundbites retranscribed.» (k = 1: «1 soundbite retranscribed.»), detalle «Review them before generating.». Nada hecho → sin toast.
 - Con fallos: `div.banner.banner--warning.retranscribe-failed role=status`, con las mismas reglas de título y detalle que `interview-queue-failed` (15.2.5) y «Try again».
+
+---
+
+## 17. Selector de entrevistas
+
+Esta sección manda sobre §15.1, que sustituye entera, y sobre todo lo anterior que la contradiga. Comportamiento y firma: `docs/modulos/interview-picker.md`; aquí, aspecto, textos literales, estados, teclado y medidas. Lo que no se dice se hereda de 5, 6.11 y 8. Sin iconos nuevos: `volume`, `warning`, `check`, `image-off`, `chevron-down` y `transcribe` de `renderer/ui-kit.js`.
+
+Es la pantalla que el usuario ve al cargar cada reportaje. Idea: un gráfico de barras de la secuencia entera, donde cada corte se ve con su duración y su voz, y una línea vertical (el límite) que separa imagen de entrevistas; debajo, la lista de entrevistas para elegir cuáles se transcriben.
+
+### 17.1 Tokens y constantes nuevos
+
+```css
+:root {
+  --size-picker: 720px;            /* ancho del selector */
+  --size-picker-plot: 112px;       /* alto del área de barras (escala de 0 a 30 s) */
+  --size-picker-rail: 28px;        /* franja del tirador bajo las barras */
+  --size-picker-axis: 48px;        /* columna de etiquetas del eje, a la izquierda */
+  --size-picker-bar-min-h: 3px;    /* alto mínimo visible de una barra */
+  --size-picker-grip: 16px;        /* tirador */
+  --size-picker-row: 40px;         /* fila de entrevista */
+  --size-picker-rows-max: 248px;   /* 6 filas de 40 + 8 de relleno */
+  --size-picker-language: 136px;   /* selector de idioma de la fila */
+  --size-peek-w: 160px;            /* miniatura de la tarjeta flotante (16:9) */
+  --size-peek-h: 90px;
+  --size-checkbox: 16px;
+
+  --color-chart-image: #868a93;          /* barra de imagen */
+  --color-chart-image-tint: #383a3e;     /* parte sin voz de una barra de imagen (30 % sobre surface) */
+  --color-chart-interview-tint: #463f5f; /* parte sin voz de una barra de entrevista (30 % sobre surface) */
+  --color-chart-zone: #23222c;           /* fondo de la zona de entrevistas (interview al 8 % sobre surface) */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-chart-image: #676c75;
+    --color-chart-image-tint: #dedfe1;     /* 22 % sobre surface */
+    --color-chart-interview-tint: #ded6f3; /* 22 % sobre surface */
+    --color-chart-zone: #f3f0fb;           /* 8 % sobre surface */
+  }
+}
+```
+
+Se borra `--size-detect-list-max`.
+
+La geometría de las barras la calcula el JavaScript (CSSOM, `el.style.*`, que la CSP permite) con tres constantes nuevas de `core/config.js`; el CSS no repite esos valores:
+
+| Constante | Valor | Uso |
+|---|---|---|
+| `INTERVIEW_CHART_SCALE_SECONDS` | 30 | tope de la escala de alto: una barra de 30 s o más llena los 112 px |
+| `INTERVIEW_CHART_SLOT_MIN_PX` | 8 | ancho mínimo de una barra con su separación (6 px de barra + 1 + 1) |
+| `INTERVIEW_CHART_BOUNDARY_PX` | 6 | hueco del límite entre la última barra de imagen y la primera de entrevista |
+
+### 17.2 Árbol DOM
+
+```
+div.modal-backdrop.is-open
+└── div.modal.interview-picker [has-voices] [no-transcriber] [is-dragging]
+    │   role=dialog aria-modal=true aria-labelledby=modal-title aria-describedby=modal-body
+    │   ancho var(--size-picker) (720px); max-width calc(100vw - 48px); max-height calc(100vh - 48px);
+    │   flex column; position relative; padding 24px; radius-xl; fondo raised; borde 1px border; shadow-3   (6.11)
+    ├── h2.modal__title  id=modal-title          title (18/600/24)
+    ├── p.modal__body    id=modal-body           body, text-secondary, margin-top 8px
+    ├── div.interview-picker__chart              margin-top 16px; flex none; position relative; padding 8px 12px 8px 0;
+    │   │                                        fondo surface; borde 1px border; radius-md
+    │   ├── div.interview-picker__chart-head     alto 20px; padding-left 12px; margin-bottom 8px; flex; align center;
+    │   │   │                                    justify space-between; gap 12px
+    │   │   ├── ul.interview-picker__legend      flex; gap 16px; caption (12/400/16), text-secondary; list-style none
+    │   │   │   └── li.interview-picker__legend-item [--image|--interview|--silent|--threshold] [is-note]
+    │   │   │       flex; align center; gap 6px;  span.interview-picker__swatch aria-hidden + texto
+    │   │   └── p.interview-picker__status [is-playing] [is-error]   aria-live=polite; flex; align center; gap 6px;
+    │   │       caption, text; white-space nowrap; vacío en reposo
+    │   │       ├── svg.icon (volume en accent | warning en warning)  16px
+    │   │       ├── span.interview-picker__status-text
+    │   │       └── span.interview-picker__status-progress  (solo is-playing) 40×2px, radius-pill, fondo track
+    │   │           └── span.interview-picker__status-fill   alto 100 %; fondo accent; ancho 0→100 % (17.9)
+    │   └── div.interview-picker__plot           grid; grid-template-columns var(--size-picker-axis) minmax(0, 1fr); align-items start
+    │       ├── div.interview-picker__axis       aria-hidden; position relative; alto var(--size-picker-plot)
+    │       │   ├── span.interview-picker__axis-label.interview-picker__axis-label--cap        «30s+»
+    │       │   └── span.interview-picker__axis-label.interview-picker__axis-label--threshold  «10.5s»
+    │       └── div.interview-picker__scroller   overflow-x auto; overflow-y hidden; barra de 8px como la tira (6.6)
+    │           └── div.interview-picker__track  position relative; width max-content; min-width 100%;
+    │               │                            padding 0 12px var(--size-picker-rail)
+    │               ├── div.interview-picker__handle  role=slider tabindex=0 (primero en el DOM del track: va antes en el tabulado)
+    │               │   └── span.interview-picker__grip
+    │               ├── div.interview-picker__bars    role=toolbar aria-label="Cuts" aria-orientation=horizontal;
+    │               │   │                             position relative; flex; align-items stretch; alto var(--size-picker-plot);
+    │               │   │                             borde inferior 1px border
+    │               │   ├── div.interview-picker__threshold  aria-hidden; position absolute; left 0; right 0; z-index 1
+    │               │   └── button.interview-picker__bar [is-interview] [is-boundary] [is-boundary-end] [is-capped] [is-playing] [is-linked]
+    │               │       │   type=button tabindex=0|-1; flex none; alto 100 %; padding 0 1px; flex; align-items flex-end;
+    │               │       │   borde 0; fondo transparente; radius-sm; cursor pointer
+    │               │       └── span.interview-picker__fill        position relative; ancho 100 %; min-height var(--size-picker-bar-min-h);
+    │               │           │                                  radius 1px 1px 0 0
+    │               │           └── span.interview-picker__speech  (solo has-voices) position absolute; left 0; right 0; bottom 0; radius inherit
+    │               └── div.interview-picker__rail    aria-hidden; position absolute; left 0; right 0; bottom 0; alto var(--size-picker-rail);
+    │                                                 cursor col-resize
+    ├── div.interview-picker__peek [is-visible]  aria-hidden; position absolute (dentro del modal); z-index 2; pointer-events none
+    │   ├── div.interview-picker__peek-thumb [is-loading] [is-thumb-error]
+    │   │   ├── img.interview-picker__peek-image alt=""
+    │   │   └── svg.icon.icon--image-off
+    │   └── p.interview-picker__peek-label
+    ├── ul.interview-picker__notes               (solo con avisos) margin-top 12px; flex none; list-style none; flex column; gap 4px
+    │   └── li.interview-picker__note [interview-picker__note--more]   flex; align start; gap 8px; 400 13px/20px --font-ui; text-secondary
+    │       ├── svg.icon.icon--warning           16px; color warning; margin-top 2px   (no en --more)
+    │       └── span                             texto (17.4)
+    ├── div.interview-picker__rows-head          margin-top 16px; alto 32px; flex none; flex; align center; gap 12px
+    │   ├── p.interview-picker__count            aria-live=polite aria-atomic=true; flex 1; min-width 0; 600 13px/16px --font-ui; text; tabular-nums
+    │   └── div.interview-picker__bulk           (no en no-transcriber) role=group aria-labelledby=interview-picker-bulk-label; flex; align center; gap 4px
+    │       ├── span.interview-picker__bulk-label  id=interview-picker-bulk-label; caption, text-tertiary; margin-right 4px: «Transcribe»
+    │       ├── button.button.button--ghost.interview-picker__all  [is-disabled]   «All»   aria-label «Transcribe all»
+    │       └── button.button.button--ghost.interview-picker__none [is-disabled]   «None»  aria-label «Transcribe none»
+    ├── ul.interview-picker__rows                aria-label="Interviews"; margin-top 8px; padding 4px 0; list-style none;
+    │   │                                        flex 0 1 auto; min-height 0; max-height var(--size-picker-rows-max); overflow-y auto;
+    │   │                                        fondo surface; borde 1px border; radius-md; barra de 8px como la tira
+    │   └── li.interview-picker__row [is-transcribed] [is-linked]   grid (17.6); alto var(--size-picker-row); align-items center
+    │       ├── label.interview-picker__pick     grid-column 1 / span 2; grid con las dos primeras columnas de la fila (subgrid); alto 100 %; cursor pointer
+    │       │   ├── span.checkbox [is-disabled]  (17.6) centrada en su columna de 40px
+    │       │   │   ├── input.checkbox__input type=checkbox aria-label «Transcribe shot 28»
+    │       │   │   └── span.checkbox__box aria-hidden → svg.icon.icon--check
+    │       │   └── span.interview-picker__shot  mono-sm (12/500/16), text: «Shot 28»
+    │       ├── span.interview-picker__length    mono-sm a 400, text-secondary, tabular-nums, alineado a la derecha: «21.1s»
+    │       ├── span.interview-picker__voice     (solo has-voices) mono-sm a 400, text-secondary, tabular-nums, derecha: «85% speech»
+    │       └── div.field__select-wrap.interview-picker__language   (fila sin «Transcribed»)
+    │           ├── select.field__select  aria-label «Language of shot 28»  [disabled]
+    │           └── svg.icon.icon--chevron-down.field__chevron
+    │           o bien  p.interview-picker__done  (is-transcribed) flex; align center; gap 6px; control a 400 (13/16), text-secondary:
+    │                   svg.icon.icon--check 16px en success + «Transcribed»
+    ├── p.interview-picker__empty                (solo con 0 entrevistas; sustituye a la lista) margin-top 8px; alto 48px; flex; align center;
+    │                                            justify center; fondo surface; borde 1px border; radius-md; caption, text-tertiary
+    ├── div.modal__actions                       margin-top 24px; flex none; flex; align center; justify end; gap 8px   (6.11)
+    │   ├── p.interview-picker__estimate         (solo con estimación) margin-right auto; 400 13px/16px --font-ui; text-secondary; tabular-nums
+    │   ├── button.button.button--secondary.interview-picker__cancel
+    │   └── button.button.button--primary.interview-picker__confirm [is-disabled]
+    └── video.interview-picker__audio            hidden; aria-hidden=true; preload=metadata; src = videoUrl (sin imagen: solo suena)
+```
+
+`role=dialog` y no `alertdialog` (a diferencia de 6.11): es un formulario con muchos controles, no una pregunta urgente. Título y cuerpo se leen igual por `aria-labelledby` y `aria-describedby`.
+
+### 17.3 Textos
+
+| Elemento | auto, con transcripción | auto, sin transcripción | manual, con transcripción | manual, sin transcripción |
+|---|---|---|---|---|
+| título | «Interview cuts detected» | igual | «Interview cuts» | igual |
+| cuerpo | «The cuts right of the line look like interviews. Drag the line to adjust it, and choose which ones to transcribe and translate in the background.» | «The cuts right of the line look like interviews. Drag the line to adjust it, then mark them as soundbites.» | «The cuts right of the line are interviews. Drag the line to change them, and choose which ones to transcribe and translate in the background.» | «The cuts right of the line are interviews. Drag the line to change them.» |
+| secundario | «Not interviews» | igual | «Cancel» | igual |
+| principal | «Mark as interviews» | igual | «Mark as interviews»; con 0 entrevistas elegidas y alguna entrevista actual: «Clear interviews» | igual |
+
+Con `videoUrl` no nulo, el cuerpo añade al final, tras un espacio: «Click a cut to hear it.» Medido: el cuerpo más largo ocupa 2 líneas (40 px) en los 670 px útiles.
+
+Recuento (`.interview-picker__count`), con F primero y L último de las entrevistas, k = L − F + 1 y t = marcadas para transcribir:
+- k ≥ 2: «Shots 28–30 · 3 interviews» (guion corto –; separador « · »).
+- k = 1: «Shot 30 · 1 interview».
+- k = 0: «No interviews».
+- Con transcripción disponible y k ≥ 1 se añade « · 2 to transcribe» (t ≥ 1) o « · none to transcribe» (t = 0): «Shots 28–30 · 3 interviews · 2 to transcribe».
+
+Leyenda (`.interview-picker__legend`), en este orden:
+
+| Elemento | Muestra (`.interview-picker__swatch`) | Texto | Cuándo |
+|---|---|---|---|
+| `--image` | 8×12 px, fondo `--color-chart-image`, radius 1px | «Image» | siempre |
+| `--interview` | 8×12 px, fondo `--color-interview`, radius 1px | «Interview» | siempre |
+| `--silent` | 8×12 px, fondo `--color-chart-image-tint`, `box-shadow: inset 0 0 0 1px var(--color-chart-image)` | «No speech» | con `voices` |
+| `is-note` | sin muestra; texto en text-tertiary | «No speech data» | sin `voices` (null) |
+| `--threshold` | 16×0 px, `border-top: 1px dashed var(--color-text-secondary)` | «Min. interview length» | siempre |
+
+Eje: `--cap` «30s+» y `--threshold` «10.5s» (= `formatShotSeconds(INTERVIEW_MIN_SECONDS)`, formato de 6.6). Tipografía 400 11px/16px `--font-mono`, text-tertiary, tabular-nums, `position: absolute; right: 8px`, alineadas a la derecha. `--cap`: `top: -8px` (su centro, en el borde superior del área de barras). `--threshold`: `style.bottom` = `calc(<p>% - 8px)` con p = `INTERVIEW_MIN_SECONDS / INTERVIEW_CHART_SCALE_SECONDS × 100` (35 con 10.5 y 30), para que su centro caiga en la línea.
+
+Tarjeta flotante (`.interview-picker__peek-label`): «Shot 27 · 23.4s · 85% speech»; sin `voices`: «Shot 27 · 23.4s». «Shot 27» en mono-sm 500 text; « · 23.4s · 85% speech» en mono-sm 400 text-secondary. Porcentaje: `Math.round(voice × 100)` seguido de «%» sin espacio.
+
+Estado de la escucha (`.interview-picker__status`): sonando, icono `volume` en accent + «Playing shot 27» + progreso; fallo, icono `warning` en warning + «Can't play this cut.», visible 4000 ms y después vacío.
+
+Filas: «Shot 28», «21.1s» (formato de 6.6), «85% speech», «Transcribed». Idioma: primera opción «Auto» (valor vacío → `null`), después los nombres de `languages` en su orden («Spanish», «English», «Catalan», «Basque», «Galician», «French», «German», «Italian», «Portuguese»).
+
+Lista vacía (k = 0): «No interviews. Drag the line left to add cuts.»
+
+Estimación (`.interview-picker__estimate`): `formatEstimate(...)` + « to transcribe», con la primera letra en mayúscula: «≈ 3 min to transcribe», «Under 1 min to transcribe». Cadena vacía (ninguna marcada) o sin transcripción: el elemento lleva `hidden`.
+
+### 17.4 Avisos
+
+`interviewNotes` del límite actual: los `INTERVIEW_NOTES_MAX` (3) primeros, uno por `li`; si hay más, un último `li.interview-picker__note--more` sin icono: «and 2 more». Textos (segundos con el formato de 6.6, porcentaje como en la tarjeta):
+
+| `kind` | Con `voice` conocido | Con `voice` null |
+|---|---|---|
+| `long-image` | «Shot 12 is marked as image but looks like an interview (14.2s, 80% speech).» | «Shot 12 is marked as image but is long enough to be an interview (14.2s).» |
+| `low-voice` | «Shot 30 is marked as interview but has little speech (12%).» | — (no existe) |
+
+Sin avisos, `ul.interview-picker__notes` lleva `hidden` y no ocupa sitio. Los avisos no son interactivos ni se anuncian (el recuento sí); se leen al recorrer el diálogo. Cada uno cabe en una línea de 670 px (≈ 85 caracteres a 13 px).
+
+### 17.5 Gráfico
+
+**Ancho de cada barra.** El JavaScript fija `style.width` (px, con decimales) de cada `button.interview-picker__bar`, que lleva `flex: none`. Ancho útil A = `clientWidth` de `.interview-picker__bars` medido al abrir, con el modal ya insertado, menos `INTERVIEW_CHART_BOUNDARY_PX`. Medido: 578 px (scroller 608 − 2 × 12 de relleno − 6). Con d_i las duraciones en segundos y m = `INTERVIEW_CHART_SLOT_MIN_PX`:
+
+1. Si n × m ≤ A (caben; hasta 72 cortes): reparto proporcional con mínimo. Fijas = ∅; repetir: k = (A − |fijas| × m) / Σ d_i de las no fijas; pasan a fijas las i con d_i × k < m; hasta que no entre ninguna. Ancho = m en las fijas y d_i × k en el resto. Suma exacta A: sin desplazamiento. Si Σ d = 0, todas A / n.
+2. Si n × m > A (73 cortes o más): desplazamiento horizontal, sin comprimir más. k = m / mediana(d) y ancho = max(m, d_i × k): la mitad más corta queda en el mínimo y las entrevistas siguen siendo más anchas que la imagen.
+
+Se calcula una vez, al abrir: el modal mide 720 px en toda ventana permitida (≥ 1280), así que no hay que recalcular al redimensionar. Mover el límite no cambia anchos (el hueco del límite está siempre descontado).
+
+Medido con un prototipo en ventana oculta (720 px, este CSS, mismo algoritmo hecho por el motor de flexbox): 5 cortes de 4.0/2.5/5.6/23.4/18.9 s → barras de 45/28/61/246/199 px; 30 cortes → mínimo 8 px y entrevistas de 73/49/58 px; 60 cortes (57 de 1,5–6,5 s y entrevistas de 21.1/42.0/16.5 s) → imagen a 8 px, entrevistas de 28/54/22 px, sin desplazamiento; 90 cortes → desplazamiento horizontal.
+
+**Alto.** `.interview-picker__fill` lleva `style.height` = min(d, 30) / 30 × 100 % (mínimo 3 px por CSS). Medido: 2,5 s → 9 px; 23,4 s → 87 px; la línea de 10.5 s queda a 39 px del fondo; 30 s o más llenan los 112 px y llevan `is-capped`.
+
+`is-capped`: corte de 3 px a 4 px del borde superior, para que se lea como barra truncada:
+```css
+.interview-picker__bar.is-capped .interview-picker__fill {
+  mask-image: linear-gradient(to bottom, #000 0 4px, transparent 4px 7px, #000 7px);
+}
+```
+
+**Colores** (relleno = `.interview-picker__fill`; voz = `.interview-picker__speech`, con `style.height` = voice × 100 %):
+
+| Barra | Sin `voices` | Con `voices` (`has-voices`) |
+|---|---|---|
+| imagen (antes de F) | relleno `--color-chart-image` | relleno `--color-chart-image-tint` + `box-shadow: inset 0 0 0 1px var(--color-chart-image)`; voz `--color-chart-image` |
+| entrevista (`is-interview`) | relleno `--color-interview` | relleno `--color-chart-interview-tint` + `box-shadow: inset 0 0 0 1px var(--color-interview)`; voz `--color-interview` |
+
+Lectura: lo macizo es voz; lo hueco, sin voz. Las ranuras `is-interview` llevan además `background: var(--color-chart-zone)` en todo su alto: la zona de entrevistas se ve aunque las barras sean bajas. Como las ranuras se tocan (la separación de 2 px entre barras es su relleno de 1 px a cada lado), la zona es continua.
+
+**Hueco del límite.** La primera entrevista lleva `is-boundary` y `style.marginLeft = '6px'`; con 0 entrevistas, la última barra lleva `is-boundary-end` y `style.marginRight = '6px'`. El tirador queda a 3 px de cada barra vecina.
+
+**Línea de umbral** (`.interview-picker__threshold`): `style.bottom` = p % (35 %); alto 0; `border-top: 1px dashed var(--color-text-secondary)`; por encima de las barras (z-index 1); `pointer-events: none`.
+
+**Tirador** (`.interview-picker__handle`): `position: absolute; top: -4px; bottom: 0; width: 16px; transform: translateX(-50%); cursor: col-resize; touch-action: none; z-index: 2`. `style.left` = centro del hueco del límite en px dentro de `.interview-picker__track`: con F ≤ último, el borde izquierdo de la barra F − 3; con F = último + 1, el borde derecho de la última + 3 (contando los 12 px de relleno del track).
+- Línea: `::before` con `left: 7px; width: 2px; top: 0; bottom: 14px`, fondo accent.
+- `.interview-picker__grip`: 16×16, radius-pill, fondo accent, `box-shadow: 0 0 0 2px var(--color-surface)`, `position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%)` (centrado en la franja de 28 px).
+
+| Estado del tirador | Aspecto |
+|---|---|
+| reposo | línea y tirador accent |
+| hover (sobre el tirador o la franja) | tirador `--color-accent-hover` y `scale(1.125)` (18 px) |
+| foco visible | `.interview-picker__handle:focus-visible .interview-picker__grip { outline: 2px solid var(--color-focus); outline-offset: 2px; }` y tooltip |
+| arrastrando (`is-dragging` en el modal) | tirador `--color-accent-pressed` y `scale(1.125)`; `cursor: col-resize` en todo el modal; `user-select: none`; tarjeta flotante oculta |
+| en un extremo | sin cambio visual; la tecla que no puede mover no hace nada |
+
+Tooltip del tirador (5.7): «Interviews start here. Drag it or use ← →».
+
+Arrastre: `pointerdown` en el tirador o en cualquier punto de `.interview-picker__rail` → `setPointerCapture`; el límite salta al hueco entre barras más cercano a la x del puntero en cada movimiento (sin posiciones intermedias). Clic en la franja sin arrastrar = salto a ese hueco. Con desplazamiento horizontal, a menos de 24 px de un borde del scroller durante el arrastre, se desplaza 8 px por fotograma hacia ese lado.
+
+**Barras como botones.** Un solo punto de tabulación (`tabindex` itinerante: 0 en la última barra enfocada; al abrir, la barra F, o la última si F = último + 1). `aria-label` «Shot 27, 23.4 seconds, 85% speech, interview» | «Shot 3, 2.5 seconds, image» (sin `voices`, sin el tramo de voz); `aria-pressed` false|true solo si hay `videoUrl`.
+
+| Estado de la barra | Aspecto |
+|---|---|
+| reposo | colores de la tabla de arriba |
+| hover | `box-shadow: inset 0 0 0 1px var(--color-border-hover)` en la ranura (todo el alto, también sobre barras bajas); tarjeta flotante |
+| `is-linked` (puntero sobre su fila) | igual que hover, sin tarjeta |
+| foco visible | `outline: 2px solid var(--color-focus); outline-offset: 1px; z-index: 1`; tarjeta flotante |
+| pulsado (`:active`) | relleno con `filter: brightness(0.9)` |
+| `is-playing` | `box-shadow: inset 0 0 0 2px var(--color-accent)` en la ranura; `aria-pressed=true`; estado «Playing shot 27» |
+| sin `videoUrl` | `cursor: default`; sin `aria-pressed`; clic, Intro y Espacio no hacen nada; la tarjeta funciona igual |
+
+**Tarjeta flotante** (`.interview-picker__peek`): padding 6px; fondo raised; borde 1px border; radius-md; shadow-2; 174×126 px (160 + 12 + 2; 90 + 6 + 16 + 12 + 2). Miniatura 160×90 (`--size-peek-w` × `--size-peek-h`), radius-sm, fondo raised, overflow hidden; etiqueta margin-top 6px, una línea con elipsis. Posición, en px dentro del modal (`position: relative`): centrada sobre la ranura, con `left` limitado a [8, ancho del modal − 8 − 174]; su borde inferior, 8 px por encima del borde superior del área de barras. Medido: el área de barras empieza 148 px por debajo del borde superior del modal, así que la tarjeta (126 + 8) cabe siempre dentro del modal, sobre el cuerpo y la cabecera del gráfico. Oculta (`is-visible` fuera) sin barra bajo el puntero ni barra enfocada.
+
+| Miniatura | Aspecto |
+|---|---|
+| lista (`get` da URL) | `img` con `object-fit: cover` |
+| cargando (`undefined`) | `is-loading`: fondo skeleton y barrido de 6.6 (`shimmer`, 1200ms lineal) |
+| sin miniatura (`null`) | `is-thumb-error`: icono `image-off` 16px centrado, text-tertiary |
+| llega con la tarjeta abierta (`subscribe`) | se pinta al momento si es la del corte mostrado; entra con opacity 0→1 |
+
+### 17.6 Filas, casilla e idioma
+
+Rejilla de `li.interview-picker__row` (`column-gap: 12px`):
+
+| Modo | `grid-template-columns` | Relleno |
+|---|---|---|
+| con transcripción y voz | `40px minmax(0, 1fr) 56px 88px var(--size-picker-language)` | `0 4px 0 0` |
+| con transcripción, sin voz | `40px minmax(0, 1fr) 56px var(--size-picker-language)` | `0 4px 0 0` |
+| sin transcripción, con voz (`no-transcriber`) | `minmax(0, 1fr) 56px 88px` | `0 12px` |
+| sin transcripción ni voz | `minmax(0, 1fr) 56px` | `0 12px` |
+
+Sin transcripción no hay casilla, idioma, «Transcribed» ni `.interview-picker__bulk`; `label.interview-picker__pick` ocupa solo la primera columna con el número.
+
+Estados de la fila: reposo sin fondo; hover `background: var(--color-hover)` y su barra `is-linked`; `is-transcribed`: casilla desactivada y sin marcar, «Transcribed» en el sitio del idioma. Sin animación al entrar o salir filas; al mover el límite la lista no se desplaza salvo que el foco esté dentro (manda el foco, 17.8).
+
+**Casilla `.checkbox`** (control común nuevo, en `controls.css` tras `.switch`; mismo patrón que 5.4: input real visualmente oculto y enfocable, caja dibujada):
+- `.checkbox`: `display: inline-flex; position: relative; width: 16px; height: 16px; flex: none`.
+- `.checkbox__input`: `position: absolute; inset: 0; margin: 0; opacity: 0; cursor: inherit` (sigue enfocable y pulsable).
+- `.checkbox__box`: 16×16 (`--size-checkbox`), radius-sm, borde 1px border-control, fondo field; dentro, el icono `check` 16px en on-accent con `visibility: hidden`.
+
+| Estado | Caja |
+|---|---|
+| sin marcar | fondo field, borde border-control |
+| hover (sobre la etiqueta de la fila) | borde border-hover |
+| marcada (`:checked + .checkbox__box`) | fondo accent, borde accent, icono visible |
+| marcada + hover | fondo accent-hover, borde accent-hover |
+| pulsado | sin marcar: fondo active; marcada: fondo accent-pressed |
+| foco visible (`.checkbox__input:focus-visible + .checkbox__box`) | `outline: 2px solid var(--color-focus); outline-offset: 2px` |
+| desactivada (`disabled` + `.checkbox.is-disabled`) | fondo transparente, borde border, sin icono, `cursor: not-allowed` |
+
+Objetivo de acierto: la etiqueta de la fila (columnas 1 y 2, 40 px de alto, ≈ 250 px de ancho con voz).
+
+**Idioma**: `.field__select-wrap` + `select.field__select` de 5.3 con alto 32px (`--size-control`) en lugar de 36, ancho `--size-picker-language` (136 px). «Portuguese», la opción más larga: ≈ 70 px + 10 + 32 del chevron = 112 px. Hover y foco como 5.3. Con la casilla desmarcada: `disabled` y aspecto desactivado de 5.3 (fondo surface, borde border, texto text-disabled), con la regla `.interview-picker__language .field__select:disabled`; conserva el valor elegido por si se vuelve a marcar.
+
+**All / None** (`button--ghost` de 5.1, 32 px): All marca todas las casillas habilitadas; None las desmarca. Desactivados (`is-disabled`, siguen enfocables) cuando no cambiarían nada, con tooltip «All interviews are selected» / «No interviews are selected». Sin casillas habilitadas (todas «Transcribed») o con k = 0, el grupo lleva `hidden`.
+
+### 17.7 Estados del diálogo
+
+| Estado | Qué se ve |
+|---|---|
+| modo auto | textos de auto (17.3); siempre abre con k ≥ 1 |
+| modo manual | textos de manual; F = primera entrevista actual (o la detección, o último + 1) |
+| 0 entrevistas | tirador tras la última barra (`is-boundary-end`); sin zona de entrevistas; recuento «No interviews»; `.interview-picker__empty` en lugar de la lista; All/None y estimación ocultos; principal: en auto `is-disabled` con tooltip «Move the line left to include at least one cut»; en manual habilitado («Clear interviews» si hay entrevistas actuales; si no, «Mark as interviews») |
+| sin datos de voz (`voices` null) | sin `has-voices`: barras macizas, leyenda con «No speech data», sin columna de voz, tarjeta sin porcentaje, avisos sin voz |
+| sin transcripción (`no-transcriber`) | cuerpo sin transcripción; sin casillas, idioma, All/None ni estimación; recuento sin «to transcribe» |
+| ninguna marcada para transcribir | recuento « · none to transcribe»; estimación oculta; el principal sigue habilitado (marca entrevistas sin cola) |
+| una barra sonando | barra `is-playing`; estado «Playing shot 27» con progreso |
+| fallo de la escucha | estado «Can't play this cut.» durante 4000 ms; ninguna barra `is-playing` |
+| arrastrando | `is-dragging`; tarjeta oculta; recuento, filas, avisos y estimación se actualizan en cada salto |
+| cargando | no existe: los datos llegan antes de abrir; solo cargan las miniaturas (17.5) |
+| error | no hay validación; el único error visible es el de la escucha |
+
+Botones del pie: los de 5.1. Principal `is-disabled` + `aria-disabled=true`: sigue enfocable y el clic no hace nada. Sin estado cargando: confirmar cierra al momento y la cola (15.2) arranca después, solo con las marcadas; el toast inicial de 15.2.1 cuenta esas («Transcribing 2 soundbites in the background»); sin marcadas, ni cola ni toast.
+
+### 17.8 Teclado y foco
+
+Foco inicial en el principal. Tab y Mayús+Tab atrapados en el diálogo, con los enfocables recalculados en cada Tab. Orden: tirador → barras (un punto) → All → None → por fila: casilla → idioma (los desactivados no reciben foco) → secundario → principal. Sin transcripción, la lista recibe `tabindex=0` solo si desborda (`scrollHeight > clientHeight`), con el foco visible de 15.4 (`outline-offset: -2px`).
+
+| Dónde | Tecla | Efecto |
+|---|---|---|
+| tirador | ← / → | F − 1 / F + 1 (una entrevista más / menos) |
+| tirador | Inicio / Fin | F = 1 (todo entrevista) / F = último + 1 (ninguna) |
+| barras | ← / →, Inicio / Fin | foco a la barra anterior / siguiente, primera / última; muestra su tarjeta |
+| barras | Intro o Espacio | escucha previa de esa barra; otra vez, la para |
+| casilla | Espacio | alterna (nativo) |
+| idioma | flechas, Alt+↓ | nativo del `select` |
+| todo el diálogo | Esc | = secundario: para la escucha y cierra con `null` |
+| fuera del diálogo | Alt+I | abre el selector en modo manual (17.10); con un modal abierto no hace nada |
+
+Tirador: `role=slider`, `aria-label` «Interview boundary», `aria-orientation=horizontal`, `aria-valuemin=1`, `aria-valuemax=<último + 1>`, `aria-valuenow=<F>`, `aria-valuetext` «From shot 28» o «No interviews». Al mover el límite o el foco de las barras, el elemento enfocado se desplaza a la vista del scroller (`scrollIntoView({ inline: 'nearest', block: 'nearest' })`). Al abrir con desplazamiento horizontal, `scrollLeft` deja el tirador a la vista con 48 px de margen.
+
+Si un control se desactiva con el foco encima (All, None, principal), el foco se queda en él. Si la fila enfocada desaparece al mover el límite, el foco va al tirador. Al cerrar, el foco vuelve como en `restoreModalFocus` (15.1): al elemento previo o a la tarjeta seleccionada de la tira.
+
+Cada cambio del recuento lo anuncia `.interview-picker__count` (polite, atómico). Al abrir no anuncia: el texto está antes de insertar el nodo.
+
+### 17.9 Movimiento
+
+| Qué | Propiedad | Duración | Curva |
+|---|---|---|---|
+| entrada y salida del diálogo | las de 6.11 y 8 | 150 / 180 / 120ms | las de 8 |
+| barra que cambia de lado | background-color del relleno, de la voz y de la ranura | 90ms | `--ease-standard` |
+| tirador por teclado o clic en la franja | `left` | 90ms | `--ease-out` |
+| tirador arrastrado | `left` sin transición (`is-dragging`) | — | — |
+| hover y arrastre del tirador | background-color y transform de `.interview-picker__grip` | 90ms | `--ease-out` |
+| tarjeta flotante | opacity 0→1 al aparecer; de una barra a otra se recoloca sin animación; se oculta sin animación | 90ms | `--ease-out` |
+| miniatura que llega | opacity 0→1 | 150ms | `--ease-out` |
+| progreso de la escucha | `@keyframes picker-preview-progress` (width 0→100 %) en `.interview-picker__status-fill`; `style.animationDuration` = min(`INTERVIEW_PREVIEW_SECONDS`, d) s | 6 s como máximo | linear |
+| casilla | background-color, border-color | 90ms | `--ease-standard` |
+| filas, avisos, recuento, estimación | sin animación | — | — |
+
+`prefers-reduced-motion: reduce`: sin `scale` del tirador; `left` sin transición; skeleton estático; el progreso de la escucha se mantiene (es información y no desplaza nada).
+
+### 17.10 Botón «Interviews…» de la barra superior y atajo
+
+```
+div.topbar__buttons   (13.2.1)
+├── button.button.button--secondary.interviews-button [is-disabled]   primer hijo; lo monta app.js
+│       type=button; svg.icon.icon--transcribe (16px) + span.button__label «Interviews…»
+├── button.translate-all
+├── button.preview-toggle
+└── button.generate
+```
+Orden del flujo: elegir entrevistas → traducir → revisar → generar. Mismo aspecto que `translate-all` (13.8): alto 32px, padding 0 12px, gap 6px, icono text-secondary (text con hover o pulsado, text-disabled desactivado: se añade a las reglas de icono de `.translate-all` en `controls.css`). Ancho ≈ 119 px (medido sin icono: 97 px).
+
+| Estado | Clase y atributos | Tooltip |
+|---|---|---|
+| listo | — | «Choose interview cuts» + `.kbd` «Alt+I» |
+| alguna cola en marcha (15.2 o 16.3) | `is-disabled`, `aria-disabled=true` | «Wait for the background transcription to finish» |
+| sin espacio de trabajo | `is-disabled`, `aria-disabled=true` | «Load a video and its XML first» (en la práctica no se ve: `.topbar__actions` está oculto en inicio) |
+
+Atajo **Alt+I**, libre (comprobado en `renderer/app.js`: se usan Alt+↑, Alt+↓, Alt+P y Alt+R). Mismo patrón que Alt+P: `event.altKey && event.code === 'KeyI'`; funciona también dentro de campos de texto; no actúa con un modal abierto ni con el botón desactivado.
+
+**Ajuste de la barra superior** (lo exige este botón; medido). En la banda estándar (1281–1679 px), con nombres de fichero largos, cola en marcha y Translate all visible, la barra ya no cabía antes de este botón: a 1440 px los chips de 280 px terminan en x = 729 y las acciones (800 px con el botón sin icono, 695 sin él) empiezan en x = 624; medido, `.topbar__brand` se parte en dos líneas (68×40) y la etiqueta del progreso también (128×32). Cambios:
+```css
+@media (max-width: 1679px) { :root { --size-chip-max: 200px; } }   /* antes solo ≤ 1280px */
+.topbar__brand   { flex: none; white-space: nowrap; }
+.topbar__sources { min-width: 0; }
+.source-chip     { min-width: 0; }
+```
+Resultado a 1440: fuentes hasta x = 569, acciones (822 px con el icono) desde x = 602: 33 px libres. A 1280 (banda compacta, cola «2/4…»): fuentes hasta 569, acciones (659 px) desde 605: 36 px libres. A 1680 (chips de 280): fuentes hasta 729, acciones desde 842. Si aun así faltara sitio, encogen los chips con elipsis y nada se parte.
+
+### 17.11 Marca `is-untranscribed` en la tira
+
+`li.shot-card.is-untranscribed`: entrevista con Original vacío (sin contar espacios), sin `is-processing` y fuera de la cola. Hijo nuevo de `.shot-card__thumb`, siempre en el DOM, visible solo con la clase:
+
+```
+div.shot-card__thumb
+├── img.shot-card__image
+├── svg.icon.icon--image-off
+├── span.shot-card__badge                «SB 1»   (arriba a la izquierda, 6.6)
+└── span.shot-card__untranscribed        aria-hidden; display none salvo en .is-untranscribed
+    └── svg.icon.icon--transcribe        16px; color warning
+```
+Caja: `position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); background: var(--color-raised)`. Ámbar porque es trabajo pendiente, como el anillo de incompleto (que esa tarjeta ya lleva: Original es obligatorio). La forma (icono de transcripción) la distingue del anillo sin depender del color. Cabe junto a la insignia «SB 12» (≈ 40 px) en la miniatura compacta de 112 px.
+
+`aria-label` de la tarjeta con sufijo «, not transcribed»: «Shot 28, soundbite 1, 21 seconds, incomplete, not transcribed». Sin tooltip ni animación; desaparece en cuanto el plano entra en la cola (en proceso o en espera) o Original tiene texto.
+
+### 17.12 Contrastes
+
+Fórmula de 1.1. Los colores nuevos se han calculado aquí; el resto sale de 1.1.
+
+| Pareja | Oscuro | Claro | Uso |
+|---|---|---|---|
+| text / raised | 13,84 | 16,42 | título, recuento, etiqueta de la tarjeta |
+| text-secondary / raised | 6,84 | 7,04 | cuerpo, avisos, estimación, datos de la tarjeta |
+| text / surface | 15,20 | 17,76 | «Shot 28», estado de la escucha |
+| text-secondary / surface | 7,52 | 7,61 | duración, voz, «Transcribed», leyenda |
+| text-tertiary / surface | 5,18 | 5,28 | eje, «No speech data», «Transcribe», lista vacía |
+| text / hover | 12,51 | 14,74 | fila con puntero encima |
+| chart-image / surface | 5,18 | 5,28 | barra de imagen y su contorno (gráfico ≥ 3:1) |
+| interview / surface | 7,82 | 6,28 | barra de entrevista |
+| interview / chart-zone | 6,86 | 5,58 | barra de entrevista sobre su zona |
+| chart-image / chart-image-tint | 3,29 | 3,96 | voz frente a parte sin voz, imagen |
+| interview / chart-interview-tint | 4,29 | 4,49 | voz frente a parte sin voz, entrevista |
+| text-secondary / surface · chart-zone | 7,52 · 6,59 | 7,61 · 6,77 | línea de umbral |
+| accent / surface · chart-zone | 6,59 · 5,78 | 5,78 · 5,14 | tirador y su línea |
+| border-hover / surface · chart-zone | 5,18 · 4,54 | 5,28 · 4,69 | contorno de hover de la barra |
+| focus / surface · chart-zone · raised | 6,59 · 5,78 · 6,00 | 5,78 · 5,14 · 5,35 | foco de barras, tirador y botones |
+| border-control / surface | 3,51 | 3,56 | borde de la casilla y del selector de idioma |
+| on-accent / accent | 6,76 | 5,78 | marca de la casilla, botón principal |
+| success / surface | 8,99 | 5,51 | icono de «Transcribed» |
+| warning / raised | 8,81 | 5,30 | icono de los avisos; marca `is-untranscribed` |
+| border-control / raised | **3,19** | 3,29 | borde del secundario (ya aceptado en 1.1) |
+
+Al límite o resueltos sin color:
+- Imagen frente a entrevista: 1,51 / 1,19. El tono no basta; los distinguen además la posición respecto al tirador, el fondo de zona y el `aria-label` («…, interview» / «…, image»).
+- Tirador frente a barras: 1,27 / 1,10. Nunca se tocan: 3 px de hueco a cada lado, donde manda accent sobre surface o zona (≥ 5,14).
+- Parte sin voz frente al fondo: `chart-image-tint` / surface 1,57 / 1,33 y `chart-interview-tint` / zona 1,60 / 1,24. La forma de la barra la da su contorno de 1 px (≥ 5,18 / 5,28); el dato exacto está en la tarjeta y en la fila.
+- Línea de umbral sobre barras de entrevista: baja (text-secondary frente a interview ≈ 1,2 en oscuro); la línea se lee en los huecos y sobre el fondo, y el eje la rotula.
+- Borde inferior de las barras y borde del panel (`--color-border`): no son controles ni información.
+- Texto desactivado exento (2,55 / 2,26); todo botón desactivado explica la causa en su tooltip.
+
+### 17.13 Accesibilidad
+
+- Roles: `dialog` con `aria-modal`, nombre y descripción; gráfico: `slider` (tirador) y `toolbar` de `button` con `aria-pressed`; recuento `aria-live=polite` + `aria-atomic`; estado de la escucha `aria-live=polite`; filas en `ul` con `aria-label`; casillas `input type=checkbox` con `aria-label`; idioma con `aria-label`; All/None en `group` con nombre (los dos nombres contienen su texto visible).
+- Objetivos: el proyecto fija 32 px de mínimo (`--size-control`, 9). Aquí: botones 32 px de alto; fila de casilla 40 × ≈ 250 px; franja del tirador de 28 px de alto en todo el ancho más su línea de 16 px en todo el alto; barras de 8 px de ancho como mínimo por 112 px de alto (pulsable la ranura entera, no solo la barra visible). Las barras estrechas no llegan a 44×44: lo compensan el teclado (un punto de tabulación y flechas) y la tarjeta, que nombra el corte bajo el puntero.
+- El estado no depende solo del color: lado = posición respecto al tirador + `aria-label`; voz = macizo frente a hueco + porcentaje en tarjeta y fila; sonando = contorno + texto + `aria-pressed`; «Transcribed» = icono + texto; avisos = icono + texto.
+- Textos alternativos: iconos `aria-hidden`; miniatura de la tarjeta `alt=""` (la tarjeta es `aria-hidden`: lo que dice ya está en el `aria-label` de la barra); `video` `aria-hidden`.
+- Reproducción solo por acción del usuario, como mucho 6 s, y se para al cerrar.
+
+### 17.14 Responsive
+
+Solo escritorio; ventana mínima 1280×700. Medido en ventana oculta de Electron con `getBoundingClientRect` sobre un prototipo con el CSS de esta sección:
+
+| Ventana y caso | Modal | Gráfico | Lista | Pie termina en |
+|---|---|---|---|---|
+| 1280×700, 30 cortes, sin avisos | 720×566 en (280, 67) | 670×186; scroller 608 | 130 (3 filas) | y = 608 |
+| 1280×700, 90 cortes, 3 avisos + «and N more» | 720×652 (tope `100vh − 48px`) | 670×196 con barra horizontal; contenido 750 | 114 (encoge) | y = 651 |
+| 1440×900, 60 cortes, sin avisos | 720×566 en (360, 167) | 670×186; sin desplazamiento | 130 | y = 708 |
+| 1440×900, 90 cortes, 3 avisos + «and N more» | 720×708 | 670×196 | 170 (4 filas, sin desplazar) | y = 779 |
+
+- Ancho: 720 px en toda ventana permitida (`max-width: calc(100vw - 48px)` solo actuaría por debajo de 768 px). Sin puntos de ruptura propios.
+- Alto: columna flexible con `max-height: calc(100vh - 48px)`; solo encoge la lista (`flex: 0 1 auto; min-height: 0`), con 6 filas (248 px) como máximo. Peor caso medido a 700 px: 114 px de lista (2,6 filas visibles), el resto desplaza dentro de la lista; la ventana nunca desplaza.
+- Gráfico: hasta 72 cortes, compresión con mínimo de 8 px y sin desplazamiento (17.5, caso 1); desde 73, desplazamiento horizontal del gráfico (caso 2), con el eje fijo a la izquierda (fuera del scroller). Con 5 cortes las barras son anchas y proporcionales (28–246 px medido).
+- Barra superior: 17.10.
+
+### 17.15 Clases y ficheros CSS
+
+Se borran:
+- `renderer/css/tokens.css`: `--size-detect-list-max`.
+- `renderer/css/controls.css`: `.interview-detect__range`, `__count`, `__stepper`, `__list`, `__list:focus-visible`, `__item`, `__shot`, `__duration`, `__empty`. `test/styles.test.js` deja de buscarlas, igual que el token.
+
+Nuevas:
+- `renderer/css/tokens.css`: los tokens de 17.1 (oscuro y claro) y `@media (max-width: 1679px) { :root { --size-chip-max: 200px; } }` (cubre también la banda compacta).
+- `renderer/css/controls.css`:
+  - tras `.switch`: `.checkbox`, `.checkbox__input`, `.checkbox__box`, `.checkbox__box .icon`, `.checkbox__input:checked + .checkbox__box`, `.checkbox__input:focus-visible + .checkbox__box`, `.checkbox.is-disabled`.
+  - chip de 5.6: `.source-chip { min-width: 0 }`.
+  - bloque de 13.8: `.interviews-button` en las reglas de icono de `.translate-all`.
+  - tras el modal de 6.11, donde estaba `.interview-detect*`: `.modal.interview-picker`, `.interview-picker__chart`, `__chart-head`, `__legend`, `__legend-item` (`--image`, `--interview`, `--silent`, `--threshold`, `.is-note`), `__swatch`, `__status` (`.is-playing`, `.is-error`), `__status-text`, `__status-progress`, `__status-fill`, `__plot`, `__axis`, `__axis-label` (`--cap`, `--threshold`), `__scroller`, `__track`, `__bars`, `__threshold`, `__bar` (`.is-interview`, `.is-boundary`, `.is-boundary-end`, `.is-capped`, `.is-playing`, `.is-linked`, `:hover`, `:focus-visible`, `:active`), `__fill`, `__speech`, `.interview-picker.has-voices …`, `.interview-picker.no-transcriber …`, `.interview-picker.is-dragging`, `__rail`, `__handle`, `__handle::before`, `__handle:focus-visible .interview-picker__grip`, `__grip`, `__peek` (`.is-visible`), `__peek-thumb` (`.is-loading`, `.is-thumb-error`), `__peek-image`, `__peek-label`, `__notes`, `__note`, `__note--more`, `__rows-head`, `__count`, `__bulk`, `__bulk-label`, `__rows`, `__rows:focus-visible`, `__row` (`.is-transcribed`, `.is-linked`, `:hover`), `__pick`, `__shot`, `__length`, `__voice`, `__language` (y `.field__select:disabled` dentro), `__done`, `__empty`, `__estimate`, `__audio`; `@keyframes picker-preview-progress`; entradas en el bloque `prefers-reduced-motion`.
+- `renderer/css/screens.css`: topbar → `.topbar__brand` (`flex: none; white-space: nowrap`), `.topbar__sources` (`min-width: 0`); shot-card → `.shot-card__untranscribed`, `.shot-card.is-untranscribed .shot-card__untranscribed`.
+- `renderer/index.html`: sin cambios (el botón lo monta `app.js` dentro de `.topbar__buttons`, que crea `output-panel`).

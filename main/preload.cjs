@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('dsw', {
   transcriberStatus: () => invoke('dsw:transcriberStatus'),
   transcribe: (videoPath, startSeconds, endSeconds, language) =>
     invoke('dsw:transcribe', videoPath, startSeconds, endSeconds, language),
+  voiceActivity: (videoPath) => invoke('dsw:voiceActivity', videoPath),
   adjustWindowWidth: (delta) => invoke('dsw:adjustWindowWidth', delta),
   pathForFile: (file) => webUtils.getPathForFile(file),
   platform: process.platform,
