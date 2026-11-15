@@ -1,6 +1,6 @@
 # Dopesheet Writer
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/github/v/release/jaimealekos/dopesheetwriter)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
 ![Electron](https://img.shields.io/badge/Electron-44-47848f)
